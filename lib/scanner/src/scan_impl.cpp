@@ -191,11 +191,10 @@ public:
                           clang::StringRef /*spelled_filename*/,
                           bool /*is_angled*/,
                           clang::CharSourceRange /*filename_range*/,
-                          [[maybe_unused]] clang::OptionalFileEntryRef file,
+                          clang::OptionalFileEntryRef /*file*/,
                           clang::StringRef /*searchPath*/,
                           clang::StringRef /*relativePath*/,
                           const clang::Module* /*imported*/,
-                          bool /*ModuleImported*/,
                           clang::SrcMgr::CharacteristicKind /*fileType*/) override
   {
     auto presumed_loc = preprocessor_.getSourceManager().getPresumedLoc(include_loc);
@@ -282,10 +281,7 @@ private:
       if (llvm::ErrorOr<clang::tooling::dependencies::EntryRef> entry =
             dep_fs->getOrCreateFileSystemEntry(file.getName()))
       {
-        if (dep_fs->ensureDirectiveTokensArePopulated(*entry))
-        {
           return entry->getDirectiveTokens();
-        }
       }
       return std::nullopt;
     };
