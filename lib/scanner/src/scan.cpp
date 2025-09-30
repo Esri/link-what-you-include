@@ -3,6 +3,7 @@
 
 #include <scanner/scan.hpp>
 
+#include <src/executable_path.hpp>
 #include <src/merge_includes.hpp>
 #include <src/scan_impl.hpp>
 #include <target_model/target_data.hpp>
@@ -79,8 +80,11 @@ auto Scanner::scan(const std::filesystem::path& binary_dir,
     source_paths.emplace_back(file);
   }
 
+  const auto exe_path = executable_path();
+  const auto resource_dir = exe_path.parent_path() / LWYI_STRINGIFY(LWYI_RELATIVE_RESOURCE_DIR);
+
   clang::tooling::CommandLineArguments arguments;
-  arguments.emplace_back("-resource-dir=" LWYI_STRINGIFY(LWYI_CLANG_RESOURCE_DIR));
+  arguments.emplace_back(fmt::format("-resource-dir={}", resource_dir.string()));
 #if _WIN32
   arguments.emplace_back("-Wno-error");
   arguments.emplace_back("-Wno-unused-command-line-argument");
