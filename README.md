@@ -49,14 +49,34 @@ Esri.
 
 ### How to build
 
-Conan can be used to get all the dependencies except for Clang.
+The following dependencies must be found by cmake
+
+- [catch2](https://github.com/catchorg/Catch2). Only needed if BUILD_TESTING is
+  enabled.
+- [fmt](https://github.com/fmtlib/fmt). To be removed by a future update to
+  C++23.
+- [libclang](https://github.com/llvm/llvm-project/releases/tag/llvmorg-18.1.8).
+  Must be version 18.
+- [simdjson](https://github.com/simdjson/simdjson).
+- [tl-expected](). To be removed by a future update to C++23.
+
+[Conan](https://conan.io/) can be used to get all the dependencies except for
+`libclang`. It should be possible to manually install the dependencies or use
+system packages and have cmake find them in the usual way but this workflow is
+not tested. For Ubuntu, `libclang` can be installed with
+
+```
+$ sudo apt install libclang-18-dev
+$ export Clang_ROOT=/usr/lib/llvm-18
+```
+
+Then run conan to install the rest of the dependencies and build as usual.
 
 ```
 $ conan install . -s build_type=Debug --build=missing -of build
 $ cmake -GNinja -S. -Bbuild \
     -DCMAKE_TOOLCHAIN_FILE=./build/conan_build/generators/conan_toolchain.cmake \
-    -DCMAKE_BUILD_TYPE=Debug \
-    -DClang_ROOT=/path/to/your/clang/install
+    -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build
 ```
 
