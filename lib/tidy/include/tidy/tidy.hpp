@@ -5,6 +5,7 @@
 
 #include <target_model/target.hpp>
 
+#include <cstdint>
 #include <vector>
 
 namespace target_model

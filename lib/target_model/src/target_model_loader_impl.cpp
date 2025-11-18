@@ -144,11 +144,11 @@ auto location_(const simdjson::ondemand::document& doc, const char* data, size_t
   -> std::string
 {
   const char* location = nullptr;
-  if (auto error = doc.current_location().get(location))
+  if (doc.current_location().get(location) || location < data ||
+      std::next(data, static_cast<ptrdiff_t>(data_size)) <= location)
   {
     return "line ?, column ?";
   }
-  assert(data <= location && location < std::next(data, data_size));
 
   const auto line_start =
     std::find(std::reverse_iterator(location), std::reverse_iterator(data), '\n');
