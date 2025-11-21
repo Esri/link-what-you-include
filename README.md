@@ -58,7 +58,7 @@ The following dependencies must be found by cmake
 - [libclang](https://github.com/llvm/llvm-project/releases/tag/llvmorg-18.1.8).
   Must be version 18.
 - [simdjson](https://github.com/simdjson/simdjson).
-- [tl-expected](). To be removed by a future update to C++23.
+- [tl-expected](https://github.com/TartanLlama/expected). To be removed by a future update to C++23.
 
 [Conan](https://conan.io/) can be used to get all the dependencies except for
 `libclang`. It should be possible to manually install the dependencies or use
