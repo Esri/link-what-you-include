@@ -84,8 +84,6 @@ function(lwyi__write_json)
         list(APPEND absolute_sources ${source})
       endforeach()
       set(sources $<PATH:CMAKE_PATH,NORMALIZE,${absolute_sources}>)
-    else()
-      set(sources)
     endif()
 
     # interface_headers
@@ -104,23 +102,24 @@ function(lwyi__write_json)
     get_target_property(interface_include_directories ${target} INTERFACE_INCLUDE_DIRECTORIES)
     if(interface_include_directories)
       set(interface_include_directories $<PATH:CMAKE_PATH,NORMALIZE,${interface_include_directories}>)
-    else()
-      set(interface_include_directories)
     endif()
 
     # interface_dependencies
     get_target_property(interface_dependencies ${target} INTERFACE_LINK_LIBRARIES)
     if(interface_dependencies)
       list(FILTER interface_dependencies EXCLUDE REGEX "\\$<LINK_ONLY:([^>]*)>")
-    else()
-      set(interface_dependencies)
     endif()
 
+    # dependencies
     get_target_property(dependencies ${target} LINK_LIBRARIES)
-    get_target_property(interface_defines ${target} INTERFACE_COMPILE_DEFINITIONS)
-    get_target_property(interface_options ${target} INTERFACE_COMPILE_OPTION)
+    if(dependencies)
+      list(FILTER dependencies EXCLUDE REGEX "\\$<LINK_ONLY:([^>]*)>")
+    endif()
+
+    # interface_include_prefixes
     get_target_property(interface_include_prefixes ${target} LWYI__prefixes)
 
+    # verify_interface_header_sets_sources
     set(verify_interface_header_sets_sources
         "$<$<TARGET_EXISTS:${target}_verify_interface_header_sets>:$<TARGET_PROPERTY:${target}_verify_interface_header_sets,SOURCES>>"
       )
