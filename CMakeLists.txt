@@ -76,7 +76,7 @@ endif()
 
 if(ENABLE_DOGFOODING)
   include(cmake/link_what_you_include.cmake)
-
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
   link_what_you_include(clangTooling clang)
   link_what_you_include(fmt::fmt fmt)
   link_what_you_include(tl::expected tl)
