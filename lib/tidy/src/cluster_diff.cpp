@@ -49,7 +49,7 @@ auto intersection_size(const std::set<target_model::Target>* lhs,
     {
       if (!(*first2 < *first1))
       {
-        *first1++;
+        first1++;
         ++count;
       }
       ++first2;
