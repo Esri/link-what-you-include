@@ -3,6 +3,7 @@
 
 #include <scanner/scan.hpp>
 
+#include <relative_resource_dir.hpp>
 #include <src/executable_path.hpp>
 #include <src/merge_includes.hpp>
 #include <src/scan_impl.hpp>
@@ -29,10 +30,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#define LWYI_STRING(s) #s
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define LWYI_STRINGIFY(s) LWYI_STRING(s)
 
 namespace scanner
 {
@@ -81,7 +78,7 @@ auto Scanner::scan(const std::filesystem::path& binary_dir,
   }
 
   const auto exe_path = executable_path();
-  const auto resource_dir = exe_path.parent_path() / LWYI_STRINGIFY(LWYI_RELATIVE_RESOURCE_DIR);
+  const auto resource_dir = exe_path.parent_path() / relative_resource_dir();
 
   clang::tooling::CommandLineArguments arguments;
   arguments.emplace_back(fmt::format("-resource-dir={}", resource_dir.string()));
