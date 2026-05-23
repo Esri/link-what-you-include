@@ -122,11 +122,10 @@ auto Target_model::validate() const -> std::string
       const auto& other_directory = other_pair.first;
       if (util::is_in_directory(directory, other_directory))
       {
-        const auto& target_data = get_target_data(target);
-        const auto& other_target_data = get_target_data(other_target);
-        assert(target_data.has_value() && other_target_data.has_value());
+        const auto& target_data = pair.second->second;
+        const auto& other_target_data = other_pair.second->second;
 
-        if (target_data->get().interface_include_prefixes.empty())
+        if (target_data.interface_include_prefixes.empty())
         {
           return fmt::format(
             "{} and {} have a conflicting include directory ({}) and {} does not have an include prefix to disambiguate.\n",
@@ -136,10 +135,10 @@ auto Target_model::validate() const -> std::string
             target.name);
         }
 
-        for (const auto& prefix : target_data->get().interface_include_prefixes)
+        for (const auto& prefix : target_data.interface_include_prefixes)
         {
-          if (auto it = other_target_data->get().interface_include_prefixes.find(prefix);
-              it != other_target_data->get().interface_include_prefixes.end())
+          if (auto it = other_target_data.interface_include_prefixes.find(prefix);
+              it != other_target_data.interface_include_prefixes.end())
           {
             return fmt::format(
               "{} and {} have conflicting include directories and share {} as an include prefix.\n",
@@ -183,10 +182,9 @@ auto Target_model::map_header_to_target(const std::filesystem::path& header) con
   {
     const auto& directory = pair.first;
     const auto& target = pair.second->first;
-    const auto& target_data = get_target_data(target);
-    assert(target_data.has_value());
+    const auto& target_data = pair.second->second;
 
-    if (target_data->get().interface_include_prefixes.empty())
+    if (target_data.interface_include_prefixes.empty())
     {
       if (util::is_in_directory(directory, header))
       {
@@ -195,7 +193,7 @@ auto Target_model::map_header_to_target(const std::filesystem::path& header) con
     }
     else
     {
-      for (const auto& prefix : target_data->get().interface_include_prefixes)
+      for (const auto& prefix : target_data.interface_include_prefixes)
       {
         const auto prefixed_dir = std::filesystem::path{directory} /
                                   std::filesystem::path{prefix};
