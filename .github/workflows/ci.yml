@@ -1,0 +1,144 @@
+# Copyright (c) 2025 Environmental Systems Research Institute, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Build and test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+
+    steps:
+      - name: Setup msvc environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup Conan
+        uses: conan-io/setup-conan@v1
+        with:
+          audit_token: ${{ secrets.CONAN_AUDIT_TOKEN }}
+          cache_packages: true
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Conan install
+        shell: bash
+        run: |
+          conan install . -s compiler.cppstd=17 -s build_type=Release --build=missing -of build/release
+          echo "CMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/build/release/conan_build/generators/conan_toolchain.cmake" >> $GITHUB_ENV
+
+      - name: Cache clangtooling
+        id: cache-clangtooling
+        uses: actions/cache@v5
+        with:
+          path: ./build/llvm
+          key: ${{ runner.os }}-output-${{ hashFiles('tools/build_clangtooling.sh') }}
+
+      - name: Build clangtooling
+        if: steps.cache-clangtooling.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          bash ./tools/build_clangtooling.sh
+
+      - name: Enable clangtooling
+        shell: bash
+        run: |
+          echo "CMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/build/llvm" >> $GITHUB_ENV
+
+      - name: Build and test
+        shell: ctest -VV -S {0}
+        run: |
+          set(CTEST_SITE github_workflow)
+          set(CTEST_USE_LAUNCHERS YES)
+          set(CTEST_CONFIGURATION_TYPE Release)
+          set(CTEST_SOURCE_DIRECTORY ${{ github.workspace }})
+          set(CTEST_BINARY_DIRECTORY ${{ github.workspace }}/build/release)
+          set(CTEST_CMAKE_GENERATOR Ninja)
+          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.${CTEST_CONFIGURATION_TYPE})
+
+          find_package(Git)
+          set(CTEST_UPDATE_VERSION_ONLY ON)
+          set(CTEST_UPDATE_COMMAND "${GIT_EXECUTABLE}")
+
+          set(model Experimental)
+          set(github_event_name ${{ github.event_name }})
+          if(github_event_name STREQUAL "schedule")
+            set(model Nightly)
+          endif()
+
+          ctest_start(${model})
+          ctest_update()
+          ctest_configure()
+          ctest_build()
+          ctest_test()
+          ctest_submit()
+
+      - name: Coverage
+        if: github.event_name == 'schedule' && runner.os == 'Linux'
+        shell: ctest -VV -S {0}
+        run: |
+          set(CTEST_SITE github_workflow)
+          set(CTEST_USE_LAUNCHERS YES)
+          set(CTEST_CONFIGURATION_TYPE Debug)
+          set(CTEST_SOURCE_DIRECTORY ${{ github.workspace }})
+          set(CTEST_BINARY_DIRECTORY ${{ github.workspace }}/build/coverage)
+          set(CTEST_CMAKE_GENERATOR Ninja)
+          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.${CTEST_CONFIGURATION_TYPE}.coverage)
+
+          find_package(Git)
+          set(CTEST_UPDATE_VERSION_ONLY ON)
+          set(CTEST_UPDATE_COMMAND "${GIT_EXECUTABLE}")
+
+          find_program(CTEST_COVERAGE_COMMAND NAMES gcov)
+          set(ENV{CXXFLAGS} "--coverage")
+
+          ctest_start(Nightly)
+          ctest_update()
+          ctest_configure()
+          ctest_build()
+          ctest_test()
+          ctest_coverage()
+          ctest_submit()
+
+      - name: ASan
+        if: github.event_name == 'schedule' && runner.os == 'Linux'
+        shell: ctest -VV -S {0}
+        run: |
+          set(CTEST_SITE github_workflow)
+          set(CTEST_USE_LAUNCHERS YES)
+          set(CTEST_CONFIGURATION_TYPE Release)
+          set(CTEST_SOURCE_DIRECTORY ${{ github.workspace }})
+          set(CTEST_BINARY_DIRECTORY ${{ github.workspace }}/build/asan)
+          set(CTEST_CMAKE_GENERATOR Ninja)
+          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.${CTEST_CONFIGURATION_TYPE}.asan)
+
+          find_package(Git)
+          set(CTEST_UPDATE_VERSION_ONLY ON)
+          set(CTEST_UPDATE_COMMAND "${GIT_EXECUTABLE}")
+
+          set(CTEST_MEMORYCHECK_TYPE AddressSanitizer)
+          set(configureOpts
+            "-DCMAKE_CXX_FLAGS_INIT=-fsanitize=address -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+            "-DCMAKE_EXE_LINKER_FLAGS_INIT=-fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+            )
+
+          ctest_start(Nightly)
+          ctest_update()
+          ctest_configure(OPTIONS "${configureOpts}")
+          ctest_build()
+          ctest_memcheck()
+          ctest_submit()
