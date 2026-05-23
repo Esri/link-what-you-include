@@ -87,6 +87,38 @@ jobs:
           ctest_test()
           ctest_submit()
 
+      - name: Clang-tidy
+        if: runner.os == 'Linux'
+        shell: ctest -VV -S {0}
+        run: |
+          set(CTEST_SITE github_workflow)
+          set(CTEST_USE_LAUNCHERS YES)
+          set(CTEST_CONFIGURATION_TYPE Release)
+          set(CTEST_SOURCE_DIRECTORY ${{ github.workspace }})
+          set(CTEST_BINARY_DIRECTORY ${{ github.workspace }}/build/tidy)
+          set(CTEST_CMAKE_GENERATOR Ninja)
+          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.${CTEST_CONFIGURATION_TYPE}.clang-tidy)
+
+          find_package(Git)
+          set(CTEST_UPDATE_VERSION_ONLY ON)
+          set(CTEST_UPDATE_COMMAND "${GIT_EXECUTABLE}")
+
+          set(configureOpts
+            "-DCMAKE_CXX_CLANG_TIDY=/usr/bin/clang-tidy"
+            )
+
+          set(model Experimental)
+          set(github_event_name ${{ github.event_name }})
+          if(github_event_name STREQUAL "schedule")
+            set(model Nightly)
+          endif()
+
+          ctest_start(${model})
+          ctest_update()
+          ctest_configure(OPTIONS "${configureOpts}")
+          ctest_build()
+          ctest_submit()
+
       - name: Coverage
         if: github.event_name == 'schedule' && runner.os == 'Linux'
         shell: ctest -VV -S {0}
