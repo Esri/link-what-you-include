@@ -14,7 +14,7 @@ class lwyiRecipe(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
 
     def requirements(self):
-        self.requires("catch2/3.8.0")
+        self.requires("catch2/3.15.1")
         self.requires("fmt/11.1.1")
         self.requires("tl-expected/20190710")
         self.requires("simdjson/3.12.3")
