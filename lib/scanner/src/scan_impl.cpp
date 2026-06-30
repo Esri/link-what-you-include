@@ -3,6 +3,7 @@
 
 #include <src/scan_impl.hpp>
 
+#include <message/message.hpp>
 #include <scanner/include.hpp>
 #include <target_model/target_data.hpp>
 
@@ -36,7 +37,6 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <print>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,23 +48,10 @@ struct Directive;
 
 namespace scanner
 {
-namespace
-{
-template <typename... TArgs>
-auto log(TArgs&&... args)
-{
-  static constexpr bool enable_log = false;
-  if constexpr (enable_log)
-  {
-    std::print(std::forward<TArgs>(args)...);
-  }
-}
-
 auto to_normal_path(const std::string& path) -> std::filesystem::path
 {
   return std::filesystem::path(path).lexically_normal().generic_string();
 }
-} // namespace
 
 class PPRecorder : public clang::PPCallbacks
 {
@@ -121,28 +108,28 @@ public:
     current_source_file_ = to_normal_path(
       preprocessor_.getSourceManager().getSLocEntry(fid).getFile().getName().str());
 
-    log("# {} {}\n",
-        (reason == LexedFileChangeReason::ExitFile ? "Reenter" : "Enter"),
-        current_source_file_.string());
+    message::debug("# {} {}",
+                   (reason == LexedFileChangeReason::ExitFile ? "Reenter" : "Enter"),
+                   current_source_file_.string());
 
     const auto previous_context = context_;
     const auto previous_include_set = current_include_set_;
 
     if (target_model::is_interface_header(target_data_, current_source_file_))
     {
-      log("Context interface header\n");
+      message::debug("Context interface header");
       context_ = Context::interface_header;
       current_include_set_ = &include_data_.interface_header_includes[current_source_file_];
     }
     else if (target_model::is_private_source(target_data_, current_source_file_))
     {
-      log("Context source\n");
+      message::debug("Context source");
       context_ = Context::source_file;
       current_include_set_ = &include_data_.includes;
     }
     else
     {
-      log("Context arbitrary file\n");
+      message::debug("Context arbitrary file");
       context_ = Context::arbitrary_file;
       current_include_set_ = nullptr;
     }
@@ -151,15 +138,15 @@ public:
     {
       if (!last_include_loc_.source.empty())
       {
-        log("Push include chain {}\n", last_include_loc_.source.string());
+        message::debug("Push include chain {}", last_include_loc_.source.string());
         include_chain_.emplace_back(last_include_loc_);
       }
 
       if (previous_include_set && context_ == Context::arbitrary_file)
       {
-        log("Dependency added to previous context: {} ({})\n",
-            current_source_file_.string(),
-            static_cast<void*>(previous_include_set));
+        message::debug("Dependency added to previous context: {} ({})",
+                       current_source_file_.string(),
+                       static_cast<const void*>(previous_include_set));
         previous_include_set->emplace(Include{current_source_file_, include_chain_});
       }
     }
@@ -167,19 +154,19 @@ public:
     {
       if (!include_chain_.empty())
       {
-        log("Pop include chain {}\n", include_chain_.back().source.string());
+        message::debug("Pop include chain {}", include_chain_.back().source.string());
         include_chain_.pop_back();
       }
 
       if (previous_context == Context::interface_header && context_ != Context::arbitrary_file)
       {
-        log("Dependency propagation\n");
+        message::debug("Dependency propagation");
         // propagate includes
         for (const auto& e : *previous_include_set)
         {
-          log("Dependency added to current context: {} ({})\n",
-              e.path.string(),
-              static_cast<void*>(current_include_set_));
+          message::debug("Dependency added to current context: {} ({})",
+                         e.path.string(),
+                         static_cast<const void*>(current_include_set_));
           current_include_set_->insert(e);
         }
       }
@@ -210,7 +197,7 @@ public:
     const auto& fileEntry = file.getFileEntry();
     const auto filename = to_normal_path(fileEntry.tryGetRealPathName().str());
 
-    log("file skipped: {}\n", filename.string());
+    message::debug("file skipped: {}", filename.string());
 
     if (context_ == Context::arbitrary_file)
     {
@@ -223,22 +210,22 @@ public:
       if (auto it = include_data_.interface_header_includes.find(filename);
           it != include_data_.interface_header_includes.end())
       {
-        log("Dependency propagation\n");
+        message::debug("Dependency propagation");
         // propagate includes
         for (const auto& e : it->second)
         {
-          log("Dependency added: {} ({})\n",
-              e.path.string(),
-              static_cast<void*>(current_include_set_));
+          message::debug("Dependency added: {} ({})",
+                         e.path.string(),
+                         static_cast<const void*>(current_include_set_));
           current_include_set_->insert(e);
         }
       }
     }
     else
     {
-      log("Dependency added: {} ({})\n",
-          filename.string(),
-          static_cast<void*>(current_include_set_));
+      message::debug("Dependency added: {} ({})",
+                     filename.string(),
+                     static_cast<const void*>(current_include_set_));
       auto include_chain = include_chain_;
       if (!last_include_loc_.source.empty())
       {

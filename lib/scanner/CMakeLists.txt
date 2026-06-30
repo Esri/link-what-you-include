@@ -18,6 +18,7 @@ target_sources(lib_scanner
   )
 target_link_libraries(lib_scanner
   PRIVATE
+    lib_message
     lib_util
     lib_target_model
     clangDependencyScanning

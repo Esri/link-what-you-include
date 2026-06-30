@@ -21,6 +21,8 @@ target_link_libraries(
   lwyi
   PRIVATE 
     lib_lwyi
+    lib_cli
+    lib_message
     lib_tidy
     lib_scanner
     lib_target_model
@@ -32,5 +34,24 @@ install(TARGETS lwyi)
 
 if(ENABLE_DOGFOODING)
   link_what_you_include(lwyi)
-  add_test(NAME "dogfood test" COMMAND lwyi -d ${CMAKE_BINARY_DIR})
+
+  function(add_dogfood_test name)
+    cmake_parse_arguments(DOGFOOD "COLOR" "MESSAGE_LEVEL" "" ${ARGN})
+
+    add_test(
+      NAME ${name}
+      COMMAND ${CMAKE_COMMAND}
+        -DLWYI_EXECUTABLE=$<TARGET_FILE:lwyi>
+        -DLWYI_BINARY_DIR=${CMAKE_BINARY_DIR}
+        -DLWYI_EXPECT_COLOR=${DOGFOOD_COLOR}
+        -DLWYI_EXPECT_MESSAGE_LEVEL=${DOGFOOD_MESSAGE_LEVEL}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/test/dogfood_test.cmake
+    )
+    set_tests_properties(${name} PROPERTIES LABELS dogfood)
+  endfunction()
+
+  add_dogfood_test(dogfood_test MESSAGE_LEVEL normal)
+  add_dogfood_test(dogfood_verbose_test MESSAGE_LEVEL verbose)
+  add_dogfood_test(dogfood_color_test COLOR MESSAGE_LEVEL normal)
+  add_dogfood_test(dogfood_debug_test MESSAGE_LEVEL debug)
 endif()

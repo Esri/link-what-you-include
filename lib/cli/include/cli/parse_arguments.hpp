@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include <lwyi/command_options.hpp>
+#include <cli/command_options.hpp>
 
 #include <expected>
 #include <string>
 
-namespace lwyi
+namespace cli
 {
 auto parse_arguments(int argc, const char* const* argv)
   -> std::expected<Command_options, std::string>;

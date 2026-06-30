@@ -3,6 +3,7 @@
 
 #include <scanner/scan.hpp>
 
+#include <message/message.hpp>
 #include <relative_resource_dir.hpp>
 #include <src/executable_path.hpp>
 #include <src/merge_includes.hpp>
@@ -25,7 +26,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <print>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -144,11 +144,14 @@ auto Scanner::scan(const std::filesystem::path& binary_dir,
       return scan_impl(file_system, dep_cache, target_data, compile_command);
     });
 
-  std::print("Processed {} source files\n", processed_file_count);
-  for (const auto& skipped_file_type : skipped_file_types)
+  if (message::verbose_enabled())
   {
-    auto msg = 1 == skipped_file_type.second ? "file" : "files";
-    std::print("Skipped {} *{} {}\n", skipped_file_type.second, skipped_file_type.first, msg);
+    message::print("Processed {} source files", processed_file_count);
+    for (const auto& skipped_file_type : skipped_file_types)
+    {
+      auto msg = 1 == skipped_file_type.second ? "file" : "files";
+      message::print("Skipped {} *{} {}", skipped_file_type.second, skipped_file_type.first, msg);
+    }
   }
 
   return merge_includes(include_data_array);

@@ -48,4 +48,3 @@ if(ENABLE_DOGFOODING)
   link_what_you_include(lib_target_model)
   link_what_you_include(lib_target_model_test)
 endif()
-

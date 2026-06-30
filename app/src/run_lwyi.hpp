@@ -4,9 +4,9 @@
 #include <expected>
 #include <string>
 
-namespace lwyi
+namespace cli
 {
 struct Command_options;
 }
 
-auto run_lwyi(const lwyi::Command_options& options) -> std::expected<int, std::string>;
+auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::string>;

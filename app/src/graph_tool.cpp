@@ -4,6 +4,7 @@
 #include <src/graph_tool.hpp>
 
 #include <lwyi/strongly_connected_dependencies.hpp>
+#include <message/message.hpp>
 #include <target_model/target.hpp>
 #include <target_model/target_data.hpp>
 #include <target_model/target_model.hpp>
@@ -67,7 +68,7 @@ auto graph_tool(const target_model::Target_model& target_model,
 
   if (!result.has_value())
   {
-    std::print("{}\n{}\n", result.error(), usage("graph"));
+    message::error_block(result.error(), usage("graph"));
     return 1;
   }
 
@@ -75,13 +76,13 @@ auto graph_tool(const target_model::Target_model& target_model,
 
   if (options.help)
   {
-    std::print("{}\n", usage("graph"));
+    message::print(usage("graph"));
     return 1;
   }
 
   if (options.output_filename.empty())
   {
-    std::print("An output file is required.\n{}\n", usage("graph"));
+    message::error_block("An output file is required.", usage("graph"));
     return 1;
   }
 
@@ -133,7 +134,7 @@ auto graph_tool(const target_model::Target_model& target_model,
     auto file = open_file(graph_path.string().c_str(), "w");
     if (!file)
     {
-      std::print("Failed to open file {}\n", graph_path.string());
+      message::error("Failed to open file {}", graph_path.string());
       return 1;
     }
 
@@ -176,7 +177,7 @@ auto graph_tool(const target_model::Target_model& target_model,
     auto file = open_file(component_path.string().c_str(), "w");
     if (!file)
     {
-      std::print("Failed to open file {}\n", component_path.string());
+      message::error("Failed to open file {}", component_path.string());
       return 1;
     }
 

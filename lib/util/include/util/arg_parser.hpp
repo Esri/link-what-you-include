@@ -172,8 +172,7 @@ private:
         {
           if (!arg_tail.empty())
           {
-            error_string =
-              std::format("argument {} must have a space before the first value.", arg);
+            error_string = std::format("argument {} must have a space before the first value.", arg);
             return begin;
           }
           for (; begin != end; ++begin)
@@ -208,8 +207,7 @@ private:
 
           if (ss.bad())
           {
-            error_string =
-              std::format("argument {} expects an integer value, got {}.", arg, param);
+            error_string = std::format("argument {} expects an integer value, got {}.", arg, param);
             return begin;
           }
 

@@ -1,9 +1,9 @@
 // Copyright (c) 2025 Environmental Systems Research Institute, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <lwyi/parse_arguments.hpp>
-
-#include <lwyi/command_options.hpp>
+#include <cli/command_options.hpp>
+#include <cli/parse_arguments.hpp>
+#include <message/message.hpp>
 
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -25,7 +25,7 @@ auto to_string(std::vector<const char*> args)
                                      }));
 }
 
-TEST_CASE("lwyi: parse_arguments for help", "[lwyi]")
+TEST_CASE("cli: parse_arguments for help", "[lwyi]")
 {
   std::vector<std::vector<const char*>> args_list{
     {"exe_name", "-h"},
@@ -36,7 +36,7 @@ TEST_CASE("lwyi: parse_arguments for help", "[lwyi]")
     INFO(to_string(args));
     const auto argc = static_cast<int>(args.size());
     const auto argv = args.data();
-    auto result = lwyi::parse_arguments(argc, argv);
+    auto result = cli::parse_arguments(argc, argv);
     REQUIRE(!result.has_value());
 
     const auto& usage = result.error();
@@ -49,7 +49,7 @@ TEST_CASE("lwyi: parse_arguments for help", "[lwyi]")
   }
 }
 
-TEST_CASE("lwyi: parse_arguments for targets", "[lwyi]")
+TEST_CASE("cli: parse_arguments for targets", "[lwyi]")
 {
   std::vector<std::vector<const char*>> args_list{
     {"exe_name", "-d", "some/dir", "-t", "one", "two", "three"},
@@ -63,7 +63,7 @@ TEST_CASE("lwyi: parse_arguments for targets", "[lwyi]")
 
     const auto argc = static_cast<int>(args.size());
     const auto argv = args.data();
-    auto result = lwyi::parse_arguments(argc, argv);
+    auto result = cli::parse_arguments(argc, argv);
     REQUIRE(result.has_value());
 
     const auto& options = result.value();
@@ -75,7 +75,7 @@ TEST_CASE("lwyi: parse_arguments for targets", "[lwyi]")
   }
 }
 
-TEST_CASE("lwyi: parse_arguments for tool", "[lwyi]")
+TEST_CASE("cli: parse_arguments for tool", "[lwyi]")
 {
   std::vector<const char*>
     args{"exe_name", "-d", "some/dir", "--tool", "one", "-z", "two", "--yep", "three"};
@@ -83,7 +83,7 @@ TEST_CASE("lwyi: parse_arguments for tool", "[lwyi]")
 
   const auto argc = static_cast<int>(args.size());
   const auto argv = args.data();
-  auto result = lwyi::parse_arguments(argc, argv);
+  auto result = cli::parse_arguments(argc, argv);
   REQUIRE(result.has_value());
 
   const auto& options = result.value();
@@ -91,4 +91,50 @@ TEST_CASE("lwyi: parse_arguments for tool", "[lwyi]")
 
   std::vector<std::string_view> expected{"one", "-z", "two", "--yep", "three"};
   CHECK(options.tool_command == expected);
+}
+
+TEST_CASE("cli: parse_arguments for color", "[lwyi]")
+{
+  std::vector<const char*> args{"exe_name", "--color", "-d", "some/dir"};
+  INFO(to_string(args));
+
+  const auto argc = static_cast<int>(args.size());
+  const auto argv = args.data();
+  auto result = cli::parse_arguments(argc, argv);
+  REQUIRE(result.has_value());
+
+  const auto& options = result.value();
+  CHECK(options.color_output);
+  CHECK(options.message_level == message::Message_level::normal);
+  CHECK(options.binary_dir == "some/dir");
+}
+
+TEST_CASE("cli: parse_arguments for verbose", "[lwyi]")
+{
+  std::vector<const char*> args{"exe_name", "--verbose", "-d", "some/dir"};
+  INFO(to_string(args));
+
+  const auto argc = static_cast<int>(args.size());
+  const auto argv = args.data();
+  auto result = cli::parse_arguments(argc, argv);
+  REQUIRE(result.has_value());
+
+  const auto& options = result.value();
+  CHECK(options.message_level == message::Message_level::verbose);
+  CHECK(options.binary_dir == "some/dir");
+}
+
+TEST_CASE("cli: parse_arguments for debug", "[lwyi]")
+{
+  std::vector<const char*> args{"exe_name", "--debug", "-d", "some/dir"};
+  INFO(to_string(args));
+
+  const auto argc = static_cast<int>(args.size());
+  const auto argv = args.data();
+  auto result = cli::parse_arguments(argc, argv);
+  REQUIRE(result.has_value());
+
+  const auto& options = result.value();
+  CHECK(options.message_level == message::Message_level::debug);
+  CHECK(options.binary_dir == "some/dir");
 }
