@@ -57,7 +57,7 @@ endif()
 ## dependencies
 
 enable_language(C) # needed for clang
-find_package(Clang REQUIRED)
+find_package(Clang 18.1 REQUIRED)
 target_include_directories(clangTooling SYSTEM INTERFACE ${CLANG_INCLUDE_DIRS})
 if (MSVC)
   target_compile_options(clangTooling INTERFACE /GR-)
@@ -65,10 +65,10 @@ else()
   target_compile_options(clangTooling INTERFACE -fno-rtti)
 endif()
 
-find_package(simdjson REQUIRED)
+find_package(simdjson 4.6 REQUIRED)
 
 if(BUILD_TESTING)
-  find_package(Catch2 REQUIRED)
+  find_package(Catch2 3.15 REQUIRED)
   include(Catch)
 endif()
 
