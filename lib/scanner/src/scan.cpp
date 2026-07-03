@@ -50,9 +50,9 @@ Scanner::Scanner(size_t thread_count)
 
 Scanner::~Scanner() = default;
 
-std::expected<Intransitive_includes, std::string>
-Scanner::scan(const std::filesystem::path& binary_dir,
-              const target_model::Target_data& target_data)
+std::expected<Intransitive_includes, std::string> Scanner::scan(
+  const std::filesystem::path& binary_dir,
+  const target_model::Target_data& target_data)
 
 {
   std::string compilation_database_error;

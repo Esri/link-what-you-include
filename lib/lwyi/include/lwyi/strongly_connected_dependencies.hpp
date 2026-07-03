@@ -15,6 +15,6 @@ class Target_model;
 namespace lwyi
 {
 // Find non-trivial strongly connected sub-graphs of the dependency graph
-std::vector<std::set<target_model::Target>>
-compute_strongly_connected_dependencies(const target_model::Target_model& target_model);
+std::vector<std::set<target_model::Target>> compute_strongly_connected_dependencies(
+  const target_model::Target_model& target_model);
 } // namespace lwyi

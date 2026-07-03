@@ -156,8 +156,8 @@ std::string Target_model::validate() const
   return {};
 }
 
-std::optional<std::reference_wrapper<const Target_data>>
-Target_model::get_target_data(const Target& target) const
+std::optional<std::reference_wrapper<const Target_data>> Target_model::get_target_data(
+  const Target& target) const
 {
   if (auto it = std::ranges::lower_bound(target_to_target_data_, target, Less{});
       it != target_to_target_data_.end() && it->first == target)

@@ -27,8 +27,8 @@ struct Vertex_data
 };
 } // namespace
 
-std::vector<std::set<target_model::Target>>
-compute_strongly_connected_dependencies(const target_model::Target_model& target_model)
+std::vector<std::set<target_model::Target>> compute_strongly_connected_dependencies(
+  const target_model::Target_model& target_model)
 {
   using Component = std::set<target_model::Target>;
 

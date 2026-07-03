@@ -35,8 +35,9 @@ public:
   Scanner& operator=(const Scanner&) = delete;
   Scanner& operator=(Scanner&&) = delete;
 
-  std::expected<Intransitive_includes, std::string>
-  scan(const std::filesystem::path& binary_dir, const target_model::Target_data& target_data);
+  std::expected<Intransitive_includes, std::string> scan(
+    const std::filesystem::path& binary_dir,
+    const target_model::Target_data& target_data);
 
 private:
   struct Impl;

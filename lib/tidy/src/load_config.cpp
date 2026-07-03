@@ -6,8 +6,8 @@
 #include <simdjson.h>
 
 #include <expected>
-#include <format>
 #include <filesystem>
+#include <format>
 #include <string>
 
 namespace tidy

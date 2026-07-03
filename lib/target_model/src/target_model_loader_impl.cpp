@@ -91,12 +91,12 @@ std::expected<Raw_data, std::string> parse_target_object_(simdjson::ondemand::ob
   return raw_data;
 }
 
-std::expected<std::vector<std::pair<Target, Raw_data>>, std::string>
-parse_(simdjson::ondemand::parser& parser,
-       simdjson::ondemand::document& doc,
-       const char* data,
-       size_t size,
-       size_t size_with_padding)
+std::expected<std::vector<std::pair<Target, Raw_data>>, std::string> parse_(
+  simdjson::ondemand::parser& parser,
+  simdjson::ondemand::document& doc,
+  const char* data,
+  size_t size,
+  size_t size_with_padding)
 {
   if (auto error = parser.iterate(data, size, size_with_padding).get(doc))
   {
@@ -169,8 +169,8 @@ Target_model_loader_impl::Target_model_loader_impl(std::unique_ptr<File_loader> 
 {
 }
 
-std::expected<void, std::string>
-Target_model_loader_impl::load_json(const std::filesystem::path& path)
+std::expected<void, std::string> Target_model_loader_impl::load_json(
+  const std::filesystem::path& path)
 {
   if (!file_loader_->load(path))
   {

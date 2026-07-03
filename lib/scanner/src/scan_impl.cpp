@@ -121,7 +121,8 @@ public:
     const auto previous_context = context_;
     const auto previous_include_set = current_include_set_;
 
-    if (fid != initial_fid_ && target_model::is_interface_header(target_data_, current_source_file_))
+    if (fid != initial_fid_ &&
+        target_model::is_interface_header(target_data_, current_source_file_))
     {
       message::debug("Context interface header");
       context_ = Context::interface_header;
@@ -323,11 +324,11 @@ private:
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache_;
 };
 
-std::expected<Include_data, std::string>
-scan_impl(const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
-          clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache,
-          const target_model::Target_data& target_data,
-          const Compile_command& compile_command)
+std::expected<Include_data, std::string> scan_impl(
+  const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache,
+  const target_model::Target_data& target_data,
+  const Compile_command& compile_command)
 {
   if (file_system->setCurrentWorkingDirectory(compile_command.cwd.string()))
   {

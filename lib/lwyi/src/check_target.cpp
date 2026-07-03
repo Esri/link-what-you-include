@@ -20,9 +20,9 @@ namespace lwyi
 {
 namespace
 {
-std::map<target_model::Target, std::vector<scanner::Include>>
-collect_include_deps(const target_model::Target_model& target_model,
-                     const std::vector<scanner::Include>& includes)
+std::map<target_model::Target, std::vector<scanner::Include>> collect_include_deps(
+  const target_model::Target_model& target_model,
+  const std::vector<scanner::Include>& includes)
 
 {
   std::map<target_model::Target, std::vector<scanner::Include>> deps;

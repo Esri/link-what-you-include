@@ -335,7 +335,8 @@ TEST_CASE("scanner: scan collects headers included transitively from private hea
   CHECK(output->includes[2].path == c_hpp.path);
 }
 
-TEST_CASE("scanner: scan can distinguish private sources in the interface include directory", "[scanner]")
+TEST_CASE("scanner: scan can distinguish private sources in the interface include directory",
+          "[scanner]")
 {
   auto fs = llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
     new llvm::vfs::InMemoryFileSystem};

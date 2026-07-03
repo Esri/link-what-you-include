@@ -23,8 +23,8 @@ public:
 
   std::string validate() const;
 
-  std::optional<std::reference_wrapper<const Target_data>>
-  get_target_data(const Target& target) const;
+  std::optional<std::reference_wrapper<const Target_data>> get_target_data(
+    const Target& target) const;
 
   std::optional<Target> map_header_to_target(const std::filesystem::path& header) const;
 
