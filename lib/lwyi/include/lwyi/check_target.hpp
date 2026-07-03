@@ -30,9 +30,8 @@ struct LWYI_error
   std::vector<scanner::Include> sample_includes;
 };
 
-auto check_target(const target_model::Target_model& target_model,
-                  const target_model::Target& target,
-                  const target_model::Target_data& target_data,
-                  const scanner::Intransitive_includes& target_includes)
-  -> std::vector<LWYI_error>;
+std::vector<LWYI_error> check_target(const target_model::Target_model& target_model,
+                                     const target_model::Target& target,
+                                     const target_model::Target_data& target_data,
+                                     const scanner::Intransitive_includes& target_includes);
 } // namespace lwyi

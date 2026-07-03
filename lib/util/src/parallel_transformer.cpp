@@ -33,7 +33,7 @@ Parallel_transformer::~Parallel_transformer()
   }
 }
 
-auto Parallel_transformer::push_work_(std::function<void()> fun) -> void
+void Parallel_transformer::push_work_(std::function<void()> fun)
 {
   std::unique_lock lock(mutex_);
   cv_.wait(lock,
@@ -47,7 +47,7 @@ auto Parallel_transformer::push_work_(std::function<void()> fun) -> void
   cv_.notify_all();
 }
 
-auto Parallel_transformer::pop_work_() -> std::function<void()>
+std::function<void()> Parallel_transformer::pop_work_()
 {
   std::unique_lock lock(mutex_);
   cv_.wait(lock,
@@ -69,7 +69,7 @@ auto Parallel_transformer::pop_work_() -> std::function<void()>
   return work;
 }
 
-auto Parallel_transformer::flush_() -> void
+void Parallel_transformer::flush_()
 {
   std::unique_lock lock(mutex_);
   ++sync_;
@@ -83,7 +83,7 @@ auto Parallel_transformer::flush_() -> void
   cv_.notify_all();
 }
 
-auto Parallel_transformer::thread_fun_() -> void
+void Parallel_transformer::thread_fun_()
 {
   for (;;)
   {

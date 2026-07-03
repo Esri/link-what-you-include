@@ -35,16 +35,16 @@ struct Options
 };
 
 constexpr auto parser = util::arg_parser<Options>()
-                           .arg("-h", "--help", &Options::help)
-                           .arg("--color", &Options::color_output)
-                           .arg("-v", "--verbose", &Options::verbose)
-                           .arg("--debug", &Options::debug)
-                           .arg("-d", "--binary_dir", &Options::binary_dir)
-                           .arg("-t", "--targets", &Options::targets)
-                           .arg("-j", "--parallel", &Options::num_threads)
-                           .terminal_arg("--tool", &Options::tool_command);
+                          .arg("-h", "--help", &Options::help)
+                          .arg("--color", &Options::color_output)
+                          .arg("-v", "--verbose", &Options::verbose)
+                          .arg("--debug", &Options::debug)
+                          .arg("-d", "--binary_dir", &Options::binary_dir)
+                          .arg("-t", "--targets", &Options::targets)
+                          .arg("-j", "--parallel", &Options::num_threads)
+                          .terminal_arg("--tool", &Options::tool_command);
 
-auto usage(std::string_view name) -> std::string
+std::string usage(std::string_view name)
 {
   return std::format(
     "Usage:\n"
@@ -65,7 +65,7 @@ auto usage(std::string_view name) -> std::string
     name);
 }
 
-auto get_message_level(const Options& options) -> message::Message_level
+message::Message_level get_message_level(const Options& options)
 {
   if (options.debug)
   {
@@ -80,8 +80,7 @@ auto get_message_level(const Options& options) -> message::Message_level
 }
 } // namespace
 
-auto parse_arguments(int argc, const char* const* argv)
-  -> std::expected<Command_options, std::string>
+std::expected<Command_options, std::string> parse_arguments(int argc, const char* const* argv)
 {
   assert(0 < argc);
   assert(argv != nullptr);

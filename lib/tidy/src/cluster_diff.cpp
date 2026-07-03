@@ -18,8 +18,8 @@ namespace tidy
 {
 namespace
 {
-auto intersection_size(const std::set<target_model::Target>* lhs,
-                       const std::set<target_model::Target>* rhs) -> size_t
+size_t intersection_size(const std::set<target_model::Target>* lhs,
+                         const std::set<target_model::Target>* rhs)
 {
   if (lhs && !rhs)
   {
@@ -58,8 +58,8 @@ auto intersection_size(const std::set<target_model::Target>* lhs,
   return count;
 }
 
-auto single_diff(const std::set<target_model::Target>* lhs,
-                 const std::set<target_model::Target>* rhs) -> Cluster_diff
+Cluster_diff single_diff(const std::set<target_model::Target>* lhs,
+                         const std::set<target_model::Target>* rhs)
 {
   Cluster_diff diff;
 
@@ -81,9 +81,8 @@ auto single_diff(const std::set<target_model::Target>* lhs,
 }
 } // namespace
 
-auto cluster_diff(const std::vector<std::set<target_model::Target>>& lhs,
-                  const std::vector<std::set<target_model::Target>>& rhs)
-  -> std::vector<Cluster_diff>
+std::vector<Cluster_diff> cluster_diff(const std::vector<std::set<target_model::Target>>& lhs,
+                                       const std::vector<std::set<target_model::Target>>& rhs)
 {
   const size_t result_size = std::max(lhs.size(), rhs.size());
 

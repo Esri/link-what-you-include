@@ -27,10 +27,9 @@ class Target_model_loader_impl : public Target_model_loader
 public:
   explicit Target_model_loader_impl(std::unique_ptr<File_loader> file_loader);
 
-  auto load_json(const std::filesystem::path& path)
-    -> std::expected<void, std::string> override;
+  std::expected<void, std::string> load_json(const std::filesystem::path& path) override;
 
-  auto make_target_model() -> Target_model override;
+  Target_model make_target_model() override;
 
 private:
   std::unique_ptr<File_loader> file_loader_;

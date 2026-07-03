@@ -9,4 +9,4 @@ namespace cli
 struct Command_options;
 }
 
-auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::string>;
+std::expected<int, std::string> run_lwyi(const cli::Command_options& options);

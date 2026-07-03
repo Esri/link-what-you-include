@@ -10,6 +10,6 @@
 
 namespace cli
 {
-auto parse_arguments(int argc, const char* const* argv)
-  -> std::expected<Command_options, std::string>;
-} // namespace lwyi
+std::expected<Command_options, std::string> parse_arguments(int argc,
+                                                            const char* const* argv);
+} // namespace cli

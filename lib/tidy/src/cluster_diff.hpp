@@ -14,7 +14,6 @@ struct Cluster_diff
   std::vector<target_model::Target> right_only;
 };
 
-auto cluster_diff(const std::vector<std::set<target_model::Target>>& lhs,
-                  const std::vector<std::set<target_model::Target>>& rhs)
-  -> std::vector<Cluster_diff>;
+std::vector<Cluster_diff> cluster_diff(const std::vector<std::set<target_model::Target>>& lhs,
+                                       const std::vector<std::set<target_model::Target>>& rhs);
 } // namespace tidy

@@ -12,6 +12,6 @@ struct Target;
 class Target_model;
 } // namespace target_model
 
-auto run_tool(const target_model::Target_model& target_model,
-              const std::vector<target_model::Target>& selected_targets,
-              const std::vector<std::string_view>& args) -> int;
+int run_tool(const target_model::Target_model& target_model,
+             const std::vector<target_model::Target>& selected_targets,
+             const std::vector<std::string_view>& args);

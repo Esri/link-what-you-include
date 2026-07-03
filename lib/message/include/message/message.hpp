@@ -44,7 +44,7 @@ void error_block(std::string_view title, std::string_view details = {});
 void note(std::string_view text);
 void warning(std::string_view text);
 void debug(std::string_view text);
-auto verbose_enabled() -> bool;
+bool verbose_enabled();
 
 template <typename... TArgs>
 void print(std::format_string<TArgs...> format, TArgs&&... args)

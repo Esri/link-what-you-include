@@ -18,7 +18,7 @@ namespace
 Output_options g_options{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 #ifdef _WIN32
-auto enable_virtual_terminal_processing(HANDLE handle) -> bool
+bool enable_virtual_terminal_processing(HANDLE handle)
 {
   if (handle == INVALID_HANDLE_VALUE || handle == nullptr)
   {
@@ -39,17 +39,15 @@ auto enable_virtual_terminal_processing(HANDLE handle) -> bool
   return SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
 }
 
-auto enable_windows_color() -> bool
+bool enable_windows_color()
 {
-  const auto stdout_ok =
-    enable_virtual_terminal_processing(GetStdHandle(STD_OUTPUT_HANDLE));
-  const auto stderr_ok =
-    enable_virtual_terminal_processing(GetStdHandle(STD_ERROR_HANDLE));
+  const auto stdout_ok = enable_virtual_terminal_processing(GetStdHandle(STD_OUTPUT_HANDLE));
+  const auto stderr_ok = enable_virtual_terminal_processing(GetStdHandle(STD_ERROR_HANDLE));
   return stdout_ok || stderr_ok;
 }
 #endif
 
-auto message_level() -> Message_level
+Message_level message_level()
 {
   return g_options.message_level;
 }
@@ -67,7 +65,7 @@ void configure(Output_options options)
   g_options = options;
 }
 
-auto paint(std::string_view text, Style style) -> std::string
+std::string paint(std::string_view text, Style style)
 {
   if (!g_options.color || style == Style::plain)
   {
@@ -99,7 +97,7 @@ auto paint(std::string_view text, Style style) -> std::string
   return std::string{"\x1b["} + code + "m" + std::string{text} + "\x1b[0m";
 }
 
-auto verbose_enabled() -> bool
+bool verbose_enabled()
 {
   return message_level() >= Message_level::verbose;
 }
@@ -153,7 +151,7 @@ void warning(std::string_view text)
   status("warning", text, Style::warning);
 }
 
-auto debug_enabled() -> bool
+bool debug_enabled()
 {
   return message_level() >= Message_level::debug;
 }

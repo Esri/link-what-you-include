@@ -65,7 +65,7 @@ public:
   }
 
   template <typename Tit>
-  [[nodiscard]] auto parse(Tit begin, Tit end) const -> std::expected<Toptions, std::string>
+  [[nodiscard]] std::expected<Toptions, std::string> parse(Tit begin, Tit end) const
   {
     Toptions options;
     auto error_string =
@@ -80,8 +80,7 @@ public:
 
 private:
   template <typename Tit, size_t... Is>
-  auto parse_impl_(Toptions& options, Tit begin, Tit end, std::index_sequence<Is...>) const
-    -> std::string
+  std::string parse_impl_(Toptions& options, Tit begin, Tit end, std::index_sequence<Is...>) const
   {
     while (begin != end)
     {
@@ -109,12 +108,12 @@ private:
   }
 
   template <typename Tit, typename U>
-  auto try_parse_(Toptions& options,
-                  std::string_view name,
-                  U value,
-                  Tit begin,
-                  Tit end,
-                  std::string& error_string) const -> Tit
+  Tit try_parse_(Toptions& options,
+                 std::string_view name,
+                 U value,
+                 Tit begin,
+                 Tit end,
+                 std::string& error_string) const
   {
     assert(begin != end);
 
@@ -172,7 +171,8 @@ private:
         {
           if (!arg_tail.empty())
           {
-            error_string = std::format("argument {} must have a space before the first value.", arg);
+            error_string =
+              std::format("argument {} must have a space before the first value.", arg);
             return begin;
           }
           for (; begin != end; ++begin)
@@ -207,7 +207,8 @@ private:
 
           if (ss.bad())
           {
-            error_string = std::format("argument {} expects an integer value, got {}.", arg, param);
+            error_string =
+              std::format("argument {} expects an integer value, got {}.", arg, param);
             return begin;
           }
 
@@ -234,7 +235,7 @@ private:
 } // namespace detail
 
 template <typename Toptions>
-constexpr auto arg_parser() -> detail::Arg_parser<Toptions>
+constexpr detail::Arg_parser<Toptions> arg_parser()
 {
   return detail::Arg_parser<Toptions>{std::make_tuple()};
 }

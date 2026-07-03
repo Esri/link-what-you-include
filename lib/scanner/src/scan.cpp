@@ -50,9 +50,10 @@ Scanner::Scanner(size_t thread_count)
 
 Scanner::~Scanner() = default;
 
-auto Scanner::scan(const std::filesystem::path& binary_dir,
-                   const target_model::Target_data& target_data)
-  -> std::expected<Intransitive_includes, std::string>
+std::expected<Intransitive_includes, std::string>
+Scanner::scan(const std::filesystem::path& binary_dir,
+              const target_model::Target_data& target_data)
+
 {
   std::string compilation_database_error;
   auto compilation_database = clang::tooling::JSONCompilationDatabase::loadFromFile(

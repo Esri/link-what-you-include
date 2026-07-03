@@ -20,9 +20,10 @@ namespace lwyi
 {
 namespace
 {
-auto collect_include_deps(const target_model::Target_model& target_model,
-                          const std::vector<scanner::Include>& includes)
-  -> std::map<target_model::Target, std::vector<scanner::Include>>
+std::map<target_model::Target, std::vector<scanner::Include>>
+collect_include_deps(const target_model::Target_model& target_model,
+                     const std::vector<scanner::Include>& includes)
+
 {
   std::map<target_model::Target, std::vector<scanner::Include>> deps;
   for (const auto& include : includes)
@@ -43,11 +44,11 @@ struct Visibility
 };
 } // namespace
 
-auto check_target(const target_model::Target_model& target_model,
-                  [[maybe_unused]] const target_model::Target& target,
-                  const target_model::Target_data& target_data,
-                  const scanner::Intransitive_includes& target_includes)
-  -> std::vector<LWYI_error>
+std::vector<LWYI_error> check_target(const target_model::Target_model& target_model,
+                                     [[maybe_unused]] const target_model::Target& target,
+                                     const target_model::Target_data& target_data,
+                                     const scanner::Intransitive_includes& target_includes)
+
 {
   std::map<target_model::Target, Visibility> visibility_map;
 

@@ -27,7 +27,7 @@ namespace target_model
 struct Target_data;
 } // namespace target_model
 
-auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::string>
+std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
 {
   auto working_dir = std::filesystem::current_path();
   auto binary_dir = working_dir;
@@ -36,7 +36,8 @@ auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::st
     binary_dir = options.binary_dir;
     if (!std::filesystem::is_directory(binary_dir))
     {
-      return std::unexpected(std::format("error: {} is not a directory", binary_dir.string()));
+      return std::unexpected(
+        std::format("error: {} is not a directory", binary_dir.string()));
     }
   }
 
@@ -79,8 +80,8 @@ auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::st
   bool first_target = true;
   if (selected_targets.empty())
   {
-     target_model.for_each_target(
-        [&](const target_model::Target& target, const target_model::Target_data& target_data)
+    target_model.for_each_target(
+      [&](const target_model::Target& target, const target_model::Target_data& target_data)
       {
         if (!first_target)
         {
@@ -91,8 +92,7 @@ auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::st
         message::heading("Target: {}", target.name);
 
         success &=
-          run_lwyi_on_target(
-            target_model, binary_dir, target, target_data, num_threads);
+          run_lwyi_on_target(target_model, binary_dir, target, target_data, num_threads);
       });
   }
   else
@@ -116,11 +116,7 @@ auto run_lwyi(const cli::Command_options& options) -> std::expected<int, std::st
       }
 
       success &=
-        run_lwyi_on_target(target_model,
-                           binary_dir,
-                           target,
-                           *otarget_data,
-                           num_threads);
+        run_lwyi_on_target(target_model, binary_dir, target, *otarget_data, num_threads);
     }
   }
 

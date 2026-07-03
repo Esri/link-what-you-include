@@ -22,12 +22,11 @@ public:
   ~Parallel_transformer();
   Parallel_transformer(const Parallel_transformer&) = delete;
   Parallel_transformer(Parallel_transformer&&) = delete;
-  auto operator=(const Parallel_transformer&) -> Parallel_transformer& = delete;
-  auto operator=(Parallel_transformer&&) -> Parallel_transformer& = delete;
+  Parallel_transformer& operator=(const Parallel_transformer&) = delete;
+  Parallel_transformer& operator=(Parallel_transformer&&) = delete;
 
   template <class TInputIt, class TOutputIt, class TCallable>
-  auto transform(TInputIt first1, TInputIt last1, TOutputIt d_first, TCallable unary_op)
-    -> TOutputIt
+  TOutputIt transform(TInputIt first1, TInputIt last1, TOutputIt d_first, TCallable unary_op)
   {
     for (; first1 != last1; ++d_first, ++first1)
     {
@@ -42,10 +41,10 @@ public:
   }
 
 private:
-  auto push_work_(std::function<void()> fun) -> void;
-  auto pop_work_() -> std::function<void()>;
-  auto flush_() -> void;
-  auto thread_fun_() -> void;
+  void push_work_(std::function<void()> fun);
+  std::function<void()> pop_work_();
+  void flush_();
+  void thread_fun_();
 
   std::vector<std::thread> threads_;
   std::queue<std::function<void()>> queue_;

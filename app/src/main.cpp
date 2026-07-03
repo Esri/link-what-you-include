@@ -8,13 +8,13 @@
 #include <expected>
 #include <string>
 
-auto print_error(const std::string& error) -> std::expected<int, std::string>
+std::expected<int, std::string> print_error(const std::string& error)
 {
   message::print(error, message::Style::error);
   return 1;
 }
 
-auto main(int argc, const char* argv[]) -> int
+int main(int argc, const char* argv[])
 {
   auto options = cli::parse_arguments(argc, argv);
   if (options.has_value())

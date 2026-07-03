@@ -13,8 +13,8 @@ struct Target_data;
 class Target_model;
 } // namespace target_model
 
-auto run_lwyi_on_target(const target_model::Target_model& target_model,
+bool run_lwyi_on_target(const target_model::Target_model& target_model,
                         const std::filesystem::path& binary_dir,
                         const target_model::Target& target,
                         const target_model::Target_data& target_data,
-                        unsigned int num_threads) -> bool;
+                        unsigned int num_threads);

@@ -48,7 +48,7 @@ struct Compile_command
 // TODO: Consider providing an option to store all include chains for display to the user.
 struct Include_cmp
 {
-  auto operator()(const Include& lhs, const Include& rhs) const -> bool
+  bool operator()(const Include& lhs, const Include& rhs) const
   {
     return lhs.path < rhs.path;
   }
@@ -61,9 +61,9 @@ struct Include_data
   std::map<std::filesystem::path, Include_set> interface_header_includes;
 };
 
-auto scan_impl(const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
-               clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache,
-               const target_model::Target_data& target_data,
-               const Compile_command& compile_command)
-  -> std::expected<Include_data, std::string>;
+std::expected<Include_data, std::string>
+scan_impl(const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
+          clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache,
+          const target_model::Target_data& target_data,
+          const Compile_command& compile_command);
 } // namespace scanner

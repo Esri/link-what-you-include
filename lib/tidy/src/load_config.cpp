@@ -12,7 +12,7 @@
 
 namespace tidy
 {
-auto load_config(std::filesystem::path config_path) -> std::expected<Config, std::string>
+std::expected<Config, std::string> load_config(std::filesystem::path config_path)
 {
   simdjson::padded_string raw_config;
   if (auto error = simdjson::padded_string::load(config_path.string()).get(raw_config))

@@ -28,41 +28,41 @@ struct Less
 {
   using Element = std::pair<Target, Target_data>;
 
-  auto operator()(const std::pair<Target, Target_data>& lhs,
-                  const std::pair<Target, Target_data>& rhs) -> bool
+  bool operator()(const std::pair<Target, Target_data>& lhs,
+                  const std::pair<Target, Target_data>& rhs)
   {
     return lhs.first < rhs.first;
   }
 
-  auto operator()(const Target& lhs, const std::pair<Target, Target_data>& rhs) -> bool
+  bool operator()(const Target& lhs, const std::pair<Target, Target_data>& rhs)
   {
     return lhs < rhs.first;
   }
 
-  auto operator()(const std::pair<Target, Target_data>& lhs, const Target& rhs) -> bool
+  bool operator()(const std::pair<Target, Target_data>& lhs, const Target& rhs)
   {
     return lhs.first < rhs;
   }
 
-  auto operator()(const Target& lhs, const Target& rhs) -> bool
+  bool operator()(const Target& lhs, const Target& rhs)
   {
     return lhs < rhs;
   }
 
-  auto operator()(const std::pair<std::filesystem::path, const Element*>& lhs,
-                  const std::pair<std::filesystem::path, const Element*>& rhs) -> bool
+  bool operator()(const std::pair<std::filesystem::path, const Element*>& lhs,
+                  const std::pair<std::filesystem::path, const Element*>& rhs)
   {
     return lhs.first < rhs.first;
   }
 
-  auto operator()(const std::filesystem::path& header,
-                  const std::pair<std::filesystem::path, const Element*>& pair) -> bool
+  bool operator()(const std::filesystem::path& header,
+                  const std::pair<std::filesystem::path, const Element*>& pair)
   {
     return header < pair.first;
   }
 
-  auto operator()(const std::pair<std::filesystem::path, const Element*>& pair,
-                  const std::filesystem::path& header) -> bool
+  bool operator()(const std::pair<std::filesystem::path, const Element*>& pair,
+                  const std::filesystem::path& header)
   {
     return pair.first < header;
   }
@@ -70,8 +70,8 @@ struct Less
 
 struct Comp
 {
-  auto operator()(const std::pair<Target, Target_data>& lhs,
-                  const std::pair<Target, Target_data>& rhs) -> bool
+  bool operator()(const std::pair<Target, Target_data>& lhs,
+                  const std::pair<Target, Target_data>& rhs)
   {
     return lhs.first == rhs.first;
   }
@@ -97,7 +97,7 @@ Target_model::Target_model(std::vector<std::pair<Target, Target_data>> target_to
   }
 }
 
-auto Target_model::validate() const -> std::string
+std::string Target_model::validate() const
 {
   // look for duplicate targets
   if (auto it = std::ranges::adjacent_find(target_to_target_data_, Comp{});
@@ -156,8 +156,8 @@ auto Target_model::validate() const -> std::string
   return {};
 }
 
-auto Target_model::get_target_data(const Target& target) const
-  -> std::optional<std::reference_wrapper<const Target_data>>
+std::optional<std::reference_wrapper<const Target_data>>
+Target_model::get_target_data(const Target& target) const
 {
   if (auto it = std::ranges::lower_bound(target_to_target_data_, target, Less{});
       it != target_to_target_data_.end() && it->first == target)
@@ -168,8 +168,7 @@ auto Target_model::get_target_data(const Target& target) const
   return {};
 }
 
-auto Target_model::map_header_to_target(const std::filesystem::path& header) const
-  -> std::optional<Target>
+std::optional<Target> Target_model::map_header_to_target(const std::filesystem::path& header) const
 {
   if (auto it = header_to_target_.find(header);
       it != std::end(header_to_target_) && it->first == header)
@@ -207,8 +206,8 @@ auto Target_model::map_header_to_target(const std::filesystem::path& header) con
   return {};
 }
 
-auto Target_model::for_each_target(
-  const std::function<void(const Target&, const Target_data&)>& visitor) const -> void
+void Target_model::for_each_target(
+  const std::function<void(const Target&, const Target_data&)>& visitor) const
 {
   for (auto& [target, data] : target_to_target_data_)
   {
@@ -216,7 +215,7 @@ auto Target_model::for_each_target(
   }
 }
 
-auto Target_model::create_pruned(const std::vector<Target>& targets) const -> Target_model
+Target_model Target_model::create_pruned(const std::vector<Target>& targets) const
 {
   std::map<Target, Target_data> pruned_target_to_target_map;
 

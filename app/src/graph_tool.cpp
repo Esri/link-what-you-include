@@ -46,21 +46,21 @@ constexpr auto parser = util::arg_parser<Options>()
                           .arg("-h", "--help", &Options::help)
                           .arg("-o", "--output", &Options::output_filename);
 
-auto usage(std::string_view name) -> std::string
+std::string usage(std::string_view name)
 {
   return std::format(usage_string, name);
 }
 
-auto open_file(const std::filesystem::path& path, const char* mode)
-  -> std::unique_ptr<FILE, int (*)(FILE*)>
+std::unique_ptr<FILE, int (*)(FILE*)> open_file(const std::filesystem::path& path,
+                                                const char* mode)
 {
   return {fopen(path.string().c_str(), mode), fclose};
 }
 } // namespace
 
-auto graph_tool(const target_model::Target_model& target_model,
-                const std::vector<target_model::Target>& selected_targets,
-                const std::vector<std::string_view>& args) -> int
+int graph_tool(const target_model::Target_model& target_model,
+               const std::vector<target_model::Target>& selected_targets,
+               const std::vector<std::string_view>& args)
 {
   assert(!args.empty() && args.front() == "graph");
 

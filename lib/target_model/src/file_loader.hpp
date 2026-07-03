@@ -12,10 +12,10 @@ class File_loader
 {
 public:
   virtual ~File_loader() = default;
-  [[nodiscard]] virtual auto load(const std::filesystem::path& path)
-    -> std::expected<void, std::string> = 0;
-  [[nodiscard]] virtual auto data() const -> const char* = 0;
-  [[nodiscard]] virtual auto size() const -> size_t = 0;
-  [[nodiscard]] virtual auto size_with_padding() const -> size_t = 0;
+  [[nodiscard]] virtual std::expected<void, std::string>
+  load(const std::filesystem::path& path) = 0;
+  [[nodiscard]] virtual const char* data() const = 0;
+  [[nodiscard]] virtual size_t size() const = 0;
+  [[nodiscard]] virtual size_t size_with_padding() const = 0;
 };
 } // namespace target_model

@@ -24,8 +24,7 @@ struct Target_data
   std::unordered_set<std::filesystem::path> verify_interface_header_sets_sources;
 };
 
-auto is_interface_header(const Target_data& target_data,
-                         const std::filesystem::path& filename) -> bool;
-auto is_private_source(const Target_data& target_data,
-                       const std::filesystem::path& filename) -> bool;
+bool is_interface_header(const Target_data& target_data,
+                         const std::filesystem::path& filename);
+bool is_private_source(const Target_data& target_data, const std::filesystem::path& filename);
 } // namespace target_model

@@ -9,8 +9,7 @@
 
 namespace target_model
 {
-auto is_interface_header(const Target_data& target_data,
-                         const std::filesystem::path& filename) -> bool
+bool is_interface_header(const Target_data& target_data, const std::filesystem::path& filename)
 {
   if (target_data.interface_headers.contains(filename))
   {
@@ -41,8 +40,7 @@ auto is_interface_header(const Target_data& target_data,
   return false;
 }
 
-auto is_private_source(const Target_data& target_data,
-                       const std::filesystem::path& filename) -> bool
+bool is_private_source(const Target_data& target_data, const std::filesystem::path& filename)
 {
   return target_data.sources.contains(filename) || target_data.headers.contains(filename);
 }

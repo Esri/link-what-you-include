@@ -48,7 +48,7 @@ struct Directive;
 
 namespace scanner
 {
-auto to_normal_path(const std::string& path) -> std::filesystem::path
+std::filesystem::path to_normal_path(const std::string& path)
 {
   return std::filesystem::path(path).lexically_normal().generic_string();
 }
@@ -86,8 +86,8 @@ public:
   ~PPRecorder() override = default;
   PPRecorder(const PPRecorder&) = delete;
   PPRecorder(PPRecorder&&) noexcept = delete;
-  auto operator=(const PPRecorder&) -> PPRecorder& = delete;
-  auto operator=(PPRecorder&&) noexcept -> PPRecorder& = delete;
+  PPRecorder& operator=(const PPRecorder&) = delete;
+  PPRecorder& operator=(PPRecorder&&) noexcept = delete;
 
   void LexedFileChanged(clang::FileID fid,
                         LexedFileChangeReason reason,
@@ -304,10 +304,10 @@ public:
   ~Action_factory() override = default;
   Action_factory(const Action_factory&) = delete;
   Action_factory(Action_factory&&) noexcept = delete;
-  auto operator=(const Action_factory&) -> Action_factory& = delete;
-  auto operator=(Action_factory&&) noexcept -> Action_factory& = delete;
+  Action_factory& operator=(const Action_factory&) = delete;
+  Action_factory& operator=(Action_factory&&) noexcept = delete;
 
-  auto create() -> std::unique_ptr<clang::FrontendAction> override
+  std::unique_ptr<clang::FrontendAction> create() override
   {
     auto dep_fs =
       llvm::IntrusiveRefCntPtr<clang::tooling::dependencies::DependencyScanningWorkerFilesystem>{
@@ -323,11 +323,11 @@ private:
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache_;
 };
 
-auto scan_impl(const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
-               clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache,
-               const target_model::Target_data& target_data,
-               const Compile_command& compile_command)
-  -> std::expected<Include_data, std::string>
+std::expected<Include_data, std::string>
+scan_impl(const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
+          clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache,
+          const target_model::Target_data& target_data,
+          const Compile_command& compile_command)
 {
   if (file_system->setCurrentWorkingDirectory(compile_command.cwd.string()))
   {

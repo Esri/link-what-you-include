@@ -41,7 +41,7 @@ constexpr std::array<std::pair<std::string_view, size_t>, 8> table{
    {"headers", 6},
    {"verify_interface_header_sets_sources", 7}}};
 
-constexpr auto lookup(std::string_view name) -> size_t
+constexpr size_t lookup(std::string_view name)
 {
   for (const auto& [n, v] : table)
   {
@@ -56,8 +56,7 @@ constexpr auto lookup(std::string_view name) -> size_t
 
 using Raw_data = std::array<std::vector<std::string_view>, table.size()>;
 
-auto parse_target_object_(simdjson::ondemand::object& target_object)
-  -> std::expected<Raw_data, std::string>
+std::expected<Raw_data, std::string> parse_target_object_(simdjson::ondemand::object& target_object)
 {
   Raw_data raw_data{};
 
@@ -92,12 +91,12 @@ auto parse_target_object_(simdjson::ondemand::object& target_object)
   return raw_data;
 }
 
-auto parse_(simdjson::ondemand::parser& parser,
-            simdjson::ondemand::document& doc,
-            const char* data,
-            size_t size,
-            size_t size_with_padding)
-  -> std::expected<std::vector<std::pair<Target, Raw_data>>, std::string>
+std::expected<std::vector<std::pair<Target, Raw_data>>, std::string>
+parse_(simdjson::ondemand::parser& parser,
+       simdjson::ondemand::document& doc,
+       const char* data,
+       size_t size,
+       size_t size_with_padding)
 {
   if (auto error = parser.iterate(data, size, size_with_padding).get(doc))
   {
@@ -141,8 +140,7 @@ auto parse_(simdjson::ondemand::parser& parser,
   return target_to_raw_data;
 }
 
-auto location_(const simdjson::ondemand::document& doc, const char* data, size_t data_size)
-  -> std::string
+std::string location_(const simdjson::ondemand::document& doc, const char* data, size_t data_size)
 {
   const char* location = nullptr;
   if (doc.current_location().get(location) || location < data ||
@@ -161,7 +159,7 @@ auto location_(const simdjson::ondemand::document& doc, const char* data, size_t
 
 } // namespace
 
-auto Target_model_loader::create() -> std::unique_ptr<Target_model_loader>
+std::unique_ptr<Target_model_loader> Target_model_loader::create()
 {
   return std::make_unique<Target_model_loader_impl>(std::make_unique<Real_file_loader>());
 }
@@ -171,8 +169,8 @@ Target_model_loader_impl::Target_model_loader_impl(std::unique_ptr<File_loader> 
 {
 }
 
-auto Target_model_loader_impl::load_json(const std::filesystem::path& path)
-  -> std::expected<void, std::string>
+std::expected<void, std::string>
+Target_model_loader_impl::load_json(const std::filesystem::path& path)
 {
   if (!file_loader_->load(path))
   {
@@ -236,7 +234,7 @@ auto Target_model_loader_impl::load_json(const std::filesystem::path& path)
   return {};
 }
 
-auto Target_model_loader_impl::make_target_model() -> Target_model
+Target_model Target_model_loader_impl::make_target_model()
 {
   return Target_model{std::exchange(target_to_target_data_, {})};
 }

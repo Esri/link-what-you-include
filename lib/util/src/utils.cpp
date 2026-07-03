@@ -7,8 +7,7 @@
 
 namespace util
 {
-auto is_in_directory(const std::filesystem::path& dir, const std::filesystem::path& file)
-  -> bool
+bool is_in_directory(const std::filesystem::path& dir, const std::filesystem::path& file)
 {
   auto relative_path = file.lexically_relative(dir);
   return !relative_path.empty() && *relative_path.begin() != "..";

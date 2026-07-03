@@ -9,20 +9,20 @@ namespace lwyi
 {
 using Underlying = std::underlying_type_t<Dependency_visibility>;
 
-auto operator!(Dependency_visibility v) -> bool
+bool operator!(Dependency_visibility v)
 {
   return v == Dependency_visibility::none;
 }
 
-auto operator|=(Dependency_visibility& lhs, Dependency_visibility rhs)
-  -> Dependency_visibility&
+Dependency_visibility& operator|=(Dependency_visibility& lhs, Dependency_visibility rhs)
+
 {
   lhs = static_cast<Dependency_visibility>(static_cast<Underlying>(lhs) |
                                            static_cast<Underlying>(rhs));
   return lhs;
 }
 
-auto operator&(Dependency_visibility lhs, Dependency_visibility rhs) -> Dependency_visibility
+Dependency_visibility operator&(Dependency_visibility lhs, Dependency_visibility rhs)
 {
   return static_cast<Dependency_visibility>(static_cast<Underlying>(lhs) &
                                             static_cast<Underlying>(rhs));

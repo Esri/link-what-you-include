@@ -11,5 +11,5 @@
 
 namespace tidy
 {
-auto load_config(std::filesystem::path config_path) -> std::expected<Config, std::string>;
+std::expected<Config, std::string> load_config(std::filesystem::path config_path);
 }

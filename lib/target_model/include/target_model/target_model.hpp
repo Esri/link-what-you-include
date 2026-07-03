@@ -21,18 +21,16 @@ class Target_model
 public:
   explicit Target_model(std::vector<std::pair<Target, Target_data>> target_to_target_data);
 
-  auto validate() const -> std::string;
+  std::string validate() const;
 
-  auto get_target_data(const Target& target) const
-    -> std::optional<std::reference_wrapper<const Target_data>>;
+  std::optional<std::reference_wrapper<const Target_data>>
+  get_target_data(const Target& target) const;
 
-  auto map_header_to_target(const std::filesystem::path& header) const
-    -> std::optional<Target>;
+  std::optional<Target> map_header_to_target(const std::filesystem::path& header) const;
 
-  auto for_each_target(const std::function<void(const Target&, const Target_data&)>& visitor) const
-    -> void;
+  void for_each_target(const std::function<void(const Target&, const Target_data&)>& visitor) const;
 
-  auto create_pruned(const std::vector<Target>& targets) const -> Target_model;
+  Target_model create_pruned(const std::vector<Target>& targets) const;
 
 private:
   using Element = std::pair<Target, Target_data>;

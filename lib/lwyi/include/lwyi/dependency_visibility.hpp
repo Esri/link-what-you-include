@@ -15,8 +15,7 @@ enum class Dependency_visibility : uint8_t
   public_scope = 0x11
 };
 
-auto operator!(Dependency_visibility v) -> bool;
-auto operator|=(Dependency_visibility& lhs, Dependency_visibility rhs)
-  -> Dependency_visibility&;
-auto operator&(Dependency_visibility lhs, Dependency_visibility rhs) -> Dependency_visibility;
+bool operator!(Dependency_visibility v);
+Dependency_visibility& operator|=(Dependency_visibility& lhs, Dependency_visibility rhs);
+Dependency_visibility operator&(Dependency_visibility lhs, Dependency_visibility rhs);
 } // namespace lwyi

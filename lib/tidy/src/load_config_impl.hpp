@@ -12,6 +12,5 @@
 
 namespace tidy
 {
-auto load_config_impl(const simdjson::padded_string& raw_config)
-  -> std::expected<Config, std::string>;
+std::expected<Config, std::string> load_config_impl(const simdjson::padded_string& raw_config);
 }

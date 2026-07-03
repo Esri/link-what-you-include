@@ -18,8 +18,8 @@
 
 namespace tidy
 {
-auto tidy(const Config& config, const target_model::Target_model& target_model)
-  -> std::vector<Dag_diagnostic>
+std::vector<Dag_diagnostic> tidy(const Config& config,
+                                 const target_model::Target_model& target_model)
 {
   std::vector<Dag_diagnostic> diagnostics;
 

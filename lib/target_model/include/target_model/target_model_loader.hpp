@@ -14,14 +14,13 @@ class Target_model;
 class Target_model_loader
 {
 public:
-  static auto create() -> std::unique_ptr<Target_model_loader>;
+  static std::unique_ptr<Target_model_loader> create();
 
   virtual ~Target_model_loader() = default;
 
-  virtual auto load_json(const std::filesystem::path& path)
-    -> std::expected<void, std::string> = 0;
+  virtual std::expected<void, std::string> load_json(const std::filesystem::path& path) = 0;
 
-  virtual auto make_target_model() -> Target_model = 0;
+  virtual Target_model make_target_model() = 0;
 };
 
 } // namespace target_model

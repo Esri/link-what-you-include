@@ -39,9 +39,9 @@ constexpr auto parser = util::arg_parser<Options>()
                           .arg("-c", "--config", &Options::config_filename);
 } // namespace
 
-auto tidy_tool(const target_model::Target_model& target_model,
-               const std::vector<target_model::Target>& /*selected_targets*/,
-               const std::vector<std::string_view>& args) -> int
+int tidy_tool(const target_model::Target_model& target_model,
+              const std::vector<target_model::Target>& /*selected_targets*/,
+              const std::vector<std::string_view>& args)
 {
   assert(!args.empty() && args.front() == "tidy");
 

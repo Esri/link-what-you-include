@@ -11,8 +11,8 @@
 #include <target_model/target.hpp>
 #include <target_model/target_data.hpp>
 
-#include <format>
 #include <filesystem>
+#include <format>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -21,8 +21,8 @@
 
 namespace
 {
-auto describe_linked_visibility(lwyi::Dependency_visibility visibility,
-                                std::string_view target_name) -> std::string
+std::string describe_linked_visibility(lwyi::Dependency_visibility visibility,
+                                       std::string_view target_name)
 {
   switch (visibility)
   {
@@ -39,7 +39,7 @@ auto describe_linked_visibility(lwyi::Dependency_visibility visibility,
   return {};
 }
 
-auto describe_included_visibility(lwyi::Dependency_visibility visibility) -> std::string_view
+std::string_view describe_included_visibility(lwyi::Dependency_visibility visibility)
 {
   switch (visibility)
   {
@@ -57,11 +57,11 @@ auto describe_included_visibility(lwyi::Dependency_visibility visibility) -> std
 }
 } // namespace
 
-auto run_lwyi_on_target(const target_model::Target_model& target_model,
+bool run_lwyi_on_target(const target_model::Target_model& target_model,
                         const std::filesystem::path& binary_dir,
                         const target_model::Target& target,
                         const target_model::Target_data& target_data,
-                        unsigned int num_threads) -> bool
+                        unsigned int num_threads)
 {
   static scanner::Scanner scanner(num_threads);
   if (target_data.sources.empty() && target_data.verify_interface_header_sets_sources.empty())
@@ -97,9 +97,9 @@ auto run_lwyi_on_target(const target_model::Target_model& target_model,
 
   if (errors.empty())
   {
-    message::status(
-        "ok", "All included dependencies are linked correctly.",
-        message::Style::success);
+    message::status("ok",
+                    "All included dependencies are linked correctly.",
+                    message::Style::success);
     return true;
   }
 

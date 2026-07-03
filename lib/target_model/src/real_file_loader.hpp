@@ -14,11 +14,10 @@ namespace target_model
 class Real_file_loader : public File_loader
 {
 public:
-  [[nodiscard]] auto load(const std::filesystem::path& path)
-    -> std::expected<void, std::string> override;
-  [[nodiscard]] auto data() const -> const char* override;
-  [[nodiscard]] auto size() const -> size_t override;
-  [[nodiscard]] auto size_with_padding() const -> size_t override;
+  [[nodiscard]] std::expected<void, std::string> load(const std::filesystem::path& path) override;
+  [[nodiscard]] const char* data() const override;
+  [[nodiscard]] size_t size() const override;
+  [[nodiscard]] size_t size_with_padding() const override;
 
 private:
   size_t size_{0U};

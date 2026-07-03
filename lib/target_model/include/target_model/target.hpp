@@ -18,7 +18,7 @@ struct Target
 template <>
 struct std::hash<target_model::Target>
 {
-  auto operator()(const target_model::Target& target) const noexcept -> std::size_t
+  std::size_t operator()(const target_model::Target& target) const noexcept
   {
     return std::hash<std::string>{}(target.name);
   }

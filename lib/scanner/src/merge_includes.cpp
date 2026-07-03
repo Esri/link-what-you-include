@@ -13,8 +13,8 @@
 
 namespace scanner
 {
-auto merge_includes(std::vector<std::expected<Include_data, std::string>> include_data_array)
-  -> std::expected<Intransitive_includes, std::string>
+std::expected<Intransitive_includes, std::string> merge_includes(
+  std::vector<std::expected<Include_data, std::string>> include_data_array)
 {
   Include_set interface_includes;
   Include_set includes;

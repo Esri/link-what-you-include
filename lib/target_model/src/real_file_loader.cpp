@@ -15,8 +15,8 @@
 
 namespace target_model
 {
-auto Real_file_loader::load(const std::filesystem::path& path)
-  -> std::expected<void, std::string>
+std::expected<void, std::string> Real_file_loader::load(const std::filesystem::path& path)
+
 {
   std::ifstream ifs(path.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
   if (ifs.fail())
@@ -37,17 +37,17 @@ auto Real_file_loader::load(const std::filesystem::path& path)
   return {};
 }
 
-auto Real_file_loader::data() const -> const char*
+const char* Real_file_loader::data() const
 {
   return bytes_.data();
 }
 
-auto Real_file_loader::size() const -> size_t
+size_t Real_file_loader::size() const
 {
   return size_;
 }
 
-auto Real_file_loader::size_with_padding() const -> size_t
+size_t Real_file_loader::size_with_padding() const
 {
   return bytes_.size();
 }

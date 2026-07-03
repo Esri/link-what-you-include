@@ -7,5 +7,5 @@
 
 namespace scanner
 {
-auto executable_path() -> std::filesystem::path;
+std::filesystem::path executable_path();
 } // namespace scanner

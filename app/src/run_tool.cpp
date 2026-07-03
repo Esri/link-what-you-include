@@ -7,7 +7,6 @@
 #include <src/graph_tool.hpp>
 #include <src/tidy_tool.hpp>
 
-
 #include <cassert>
 #include <string_view>
 #include <vector>
@@ -20,9 +19,9 @@ constexpr std::string_view usage_string = R"(tools:
   graph                     Generate a graphviz dot graph of the dependencies.)";
 }
 
-auto run_tool(const target_model::Target_model& target_model,
-              const std::vector<target_model::Target>& selected_targets,
-              const std::vector<std::string_view>& args) -> int
+int run_tool(const target_model::Target_model& target_model,
+             const std::vector<target_model::Target>& selected_targets,
+             const std::vector<std::string_view>& args)
 {
   assert(!args.empty());
 

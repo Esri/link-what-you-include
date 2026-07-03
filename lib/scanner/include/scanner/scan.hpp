@@ -32,12 +32,11 @@ public:
   ~Scanner();
   Scanner(const Scanner&) = delete;
   Scanner(Scanner&&) = delete;
-  auto operator=(const Scanner&) -> Scanner& = delete;
-  auto operator=(Scanner&&) -> Scanner& = delete;
+  Scanner& operator=(const Scanner&) = delete;
+  Scanner& operator=(Scanner&&) = delete;
 
-  auto scan(const std::filesystem::path& binary_dir,
-            const target_model::Target_data& target_data)
-    -> std::expected<Intransitive_includes, std::string>;
+  std::expected<Intransitive_includes, std::string>
+  scan(const std::filesystem::path& binary_dir, const target_model::Target_data& target_data);
 
 private:
   struct Impl;
