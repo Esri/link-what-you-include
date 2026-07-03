@@ -85,10 +85,16 @@ jobs:
 
           ctest_start(${model})
           ctest_update()
-          ctest_configure(OPTIONS "${configure_opts}")
-          ctest_build()
-          ctest_test()
+          ctest_configure()
+          ctest_build(RETURN_VALUE result NUMBER_ERRORS errors NUMBER_WARNINGS warnings)
+          if(result EQUAL 0)
+            ctest_test()
+          endif()
           ctest_submit()
+
+          if((NOT result EQUAL 0) OR (errors GREATER 0) OR (warnings GREATER 0))
+            message(FATAL_ERROR "Build failed with ${errors} errors and ${warnings} warnings")
+          endif()
 
       - name: Clang-tidy
         if: runner.os == 'Linux'
@@ -113,8 +119,12 @@ jobs:
           ctest_start(${model})
           ctest_update()
           ctest_configure(OPTIONS "${configure_opts}")
-          ctest_build()
+          ctest_build(NUMBER_ERRORS errors NUMBER_WARNINGS warnings)
           ctest_submit()
+
+          if((errors GREATER 0) OR (warnings GREATER 0))
+            message(FATAL_ERROR "Clang-tidy build failed with ${errors} errors and ${warnings} warnings")
+          endif()
 
       - name: Coverage
         if: github.event_name == 'schedule' && runner.os == 'Linux'
@@ -131,6 +141,7 @@ jobs:
           set(configure_opts
             -DCMAKE_CXX_FLAGS_INIT=--coverage
             )
+          set(CTEST_CUSTOM_COVERAGE_EXCLUDE $ENV{GITHUB_WORKSPACE}/3rdparty)
 
           ctest_start(Nightly)
           ctest_update()
