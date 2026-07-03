@@ -132,8 +132,8 @@ void error(std::string_view text)
   status("error", text, Style::error);
 }
 
-void error_block(std::string_view title,
-                 std::string_view details) // NOLINT(bugprone-easily-swappable-parameters)
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+void error_block(std::string_view title, std::string_view details)
 {
   status("error", title, Style::error);
   if (!details.empty())
