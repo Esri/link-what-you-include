@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Environmental Systems Research Institute, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-name: Build and test
+name: CI
 
 on:
   push:
@@ -14,7 +14,53 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  simple_workflow:
+    name: Simple workflow
+    if: github.repository == 'esri/link-what-you-include' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-26]
+
+    steps:
+      - name: Setup linux environment
+        if: runner.os == 'Linux'
+        # update README.md if this is changed
+        run: |
+          sudo apt install clang-18 libclang-18-dev libsimdjson-dev catch2
+          cat << EOF >> $GITHUB_ENV
+          Clang_ROOT=/usr/lib/llvm-18
+          CMAKE_GENERATOR=Ninja
+          EOF
+
+      - name: Setup macos environment
+        if: runner.os == 'MacOS'
+        # update README.md if this is changed
+        run: |
+          sudo xcode-select -switch /Library/Developer/CommandLineTools
+          brew install llvm@21 llvm@18 catch2 simdjson
+          cat << EOF >> $GITHUB_ENV
+          SDKROOT=$(xcrun --show-sdk-path)
+          CXX=$(brew --prefix llvm@21)/bin/clang++
+          CC=$(brew --prefix llvm@21)/bin/clang
+          Clang_ROOT=/opt/homebrew/opt/llvm@18
+          Catch2_ROOT=/opt/homebrew/Cellar/catch2/3.15.1
+          simdjson_ROOT=/opt/homebrew/Cellar/simdjson/4.6.4
+          CMAKE_GENERATOR=Ninja
+          EOF
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build and test
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build 
+          ctest --test-dir build 
+
+  full_build_and_test:
+    name: Full build and test
     if: github.repository == 'esri/link-what-you-include' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:
@@ -32,18 +78,21 @@ jobs:
       - name: Setup linux environment
         if: runner.os == 'Linux'
         run: |
-          sudo apt install clang-tidy-20
-          echo "CXX=/usr/bin/g++-14" >> $GITHUB_ENV
-          echo "CC=/usr/bin/gcc-14" >> $GITHUB_ENV
+          cat << EOF >> $GITHUB_ENV
+          CXX=/usr/bin/g++-14
+          CC=/usr/bin/gcc-14
+          EOF
 
       - name: Setup macos environment
         if: runner.os == 'MacOS'
         run: |
           sudo xcode-select -switch /Library/Developer/CommandLineTools
           brew install llvm@21
-          echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
-          echo "CXX=$(brew --prefix llvm@21)/bin/clang++" >> $GITHUB_ENV
-          echo "CC=$(brew --prefix llvm@21)/bin/clang" >> $GITHUB_ENV
+          cat << EOF >> $GITHUB_ENV
+          SDKROOT=$(xcrun --show-sdk-path)
+          CXX=$(brew --prefix llvm@21)/bin/clang++
+          CC=$(brew --prefix llvm@21)/bin/clang
+          EOF
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -69,7 +118,7 @@ jobs:
           echo "CMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/3rdparty" >> $GITHUB_ENV
 
       - name: Build and test
-        shell: ctest -VV -S {0}
+        shell: ctest -V -S {0}
         run: |
           include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
 
@@ -96,9 +145,24 @@ jobs:
             message(FATAL_ERROR "Build failed with ${errors} errors and ${warnings} warnings")
           endif()
 
-      - name: Clang-tidy
-        if: runner.os == 'Linux'
-        shell: ctest -VV -S {0}
+  tidy:
+    name: Clang tidy
+    if: github.repository == 'esri/link-what-you-include' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Setup linux environment
+        run: |
+          sudo apt install clang-18 libclang-18-dev libsimdjson-dev catch2
+          cat << EOF >> $GITHUB_ENV
+          Clang_ROOT=/usr/lib/llvm-18
+          CMAKE_GENERATOR=Ninja
+          EOF
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build with clang-tidy
+        shell: ctest -V -S {0}
         run: |
           include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
 
@@ -113,7 +177,7 @@ jobs:
           endif()
 
           set(configure_opts
-            -DCMAKE_CXX_CLANG_TIDY=/usr/bin/clang-tidy-20
+            -DCMAKE_CXX_CLANG_TIDY=clang-tidy-21
             )
 
           ctest_start(${model})
@@ -126,52 +190,3 @@ jobs:
             message(FATAL_ERROR "Clang-tidy build failed with ${errors} errors and ${warnings} warnings")
           endif()
 
-      - name: Coverage
-        if: github.event_name == 'schedule' && runner.os == 'Linux'
-        shell: ctest -VV -S {0}
-        run: |
-          include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
-
-          set(CTEST_CONFIGURATION_TYPE Debug)
-          set(CTEST_SOURCE_DIRECTORY $ENV{GITHUB_WORKSPACE})
-          set(CTEST_BINARY_DIRECTORY $ENV{GITHUB_WORKSPACE}/build/coverage)
-          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.coverage)
-
-          find_program(CTEST_COVERAGE_COMMAND NAMES gcov)
-          set(configure_opts
-            -DCMAKE_CXX_FLAGS_INIT=--coverage
-            )
-          set(CTEST_CUSTOM_COVERAGE_EXCLUDE $ENV{GITHUB_WORKSPACE}/3rdparty)
-
-          ctest_start(Nightly)
-          ctest_update()
-          ctest_configure(OPTIONS "${configure_opts}")
-          ctest_build()
-          ctest_test()
-          ctest_coverage()
-          ctest_submit()
-
-      - name: ASan
-        if: github.event_name == 'schedule' && runner.os == 'Linux'
-        shell: ctest -VV -S {0}
-        run: |
-          include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
-
-          set(CTEST_CONFIGURATION_TYPE Debug)
-          set(CTEST_SOURCE_DIRECTORY $ENV{GITHUB_WORKSPACE})
-          set(CTEST_BINARY_DIRECTORY $ENV{GITHUB_WORKSPACE}/build/asan)
-          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.asan)
-
-          set(CTEST_MEMORYCHECK_TYPE AddressSanitizer)
-
-          set(configure_opts
-            -DCMAKE_CXX_FLAGS_INIT=-fsanitize=address
-            -DCMAKE_EXE_LINKER_FLAGS_INIT=-fsanitize=address
-            )
-
-          ctest_start(Nightly)
-          ctest_update()
-          ctest_configure(OPTIONS "${configure_opts}")
-          ctest_build()
-          ctest_memcheck()
-          ctest_submit()

@@ -1,0 +1,56 @@
+# Copyright (c) 2025 Environmental Systems Research Institute, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Coverage
+
+on:
+  schedule:
+    - cron: '42 3 * * *'
+      timezone: "America/Los_Angeles"
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: github.repository == 'esri/link-what-you-include' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Setup linux environment
+        run: |
+          sudo apt install clang-18 libclang-18-dev libsimdjson-dev catch2
+          cat << EOF >> $GITHUB_ENV
+          Clang_ROOT=/usr/lib/llvm-18
+          CMAKE_GENERATOR=Ninja
+          EOF
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build and test with coverage
+        shell: ctest -V -S {0}
+        run: |
+          include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
+
+          set(CTEST_CONFIGURATION_TYPE Debug)
+          set(CTEST_SOURCE_DIRECTORY $ENV{GITHUB_WORKSPACE})
+          set(CTEST_BINARY_DIRECTORY $ENV{GITHUB_WORKSPACE}/build/coverage)
+          set(CTEST_BUILD_NAME ${CMAKE_SYSTEM_NAME}.coverage)
+
+          find_program(CTEST_COVERAGE_COMMAND NAMES gcov)
+          set(configure_opts
+            -DCMAKE_CXX_FLAGS_INIT=--coverage
+            )
+          #set(CTEST_CUSTOM_COVERAGE_EXCLUDE $ENV{GITHUB_WORKSPACE}/3rdparty)
+
+          set(model Experimental)
+          if($ENV{GITHUB_EVENT_NAME} STREQUAL schedule)
+            set(model Nightly)
+          endif()
+
+          ctest_start(${model})
+          ctest_update()
+          ctest_configure(OPTIONS "${configure_opts}")
+          ctest_build()
+          ctest_test()
+          ctest_coverage()
+          ctest_submit()
+

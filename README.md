@@ -54,16 +54,23 @@ A compiler with support for the C++23 standard is required. The following are kn
 - gcc 14.2.0
 - msvc 19.51.36247.0
 
-The following dependencies must be available:
+The following must be available:
 
-- [catch2](https://github.com/catchorg/Catch2). Only needed if BUILD_TESTING is
-  enabled. Versions 3.7 and greater are expected to work.
 - [clang](https://github.com/llvm/llvm-project/releases/tag/llvmorg-18.1.8).
   Only the tooling libraries are needed. Must be version 18. Version 18.1.8 is
   known to work.
 - [simdjson](https://github.com/simdjson/simdjson). Versions 4.2 and greater are
   expected to work, but due to upstream restrictions, we require either 4.2.x or
   4.6.x.
+
+The following are optional:
+
+- [catch2](https://github.com/catchorg/Catch2). Only needed if BUILD_TESTING is
+  enabled. Versions 3.7 and greater are expected to work.
+- [clang-tidy](https://clang.llvm.org/extra/clang-tidy/). The CI system runs
+  clang-tidy and we have a lot of checkers enabled. You might want to run this
+  locally if you are developing a change. Version 21 and greater are expected
+  to work. The CI uses version 21.1.8.
 
 <details>
 <summary>Provision dependencies on Ubuntu 26.04</summary>
@@ -89,7 +96,7 @@ $ export simdjson_ROOT=/opt/homebrew/Cellar/simdjson/4.6.4
 <details>
 <summary>Provision dependencies from source</summary>
 
-This is relativly straight forward. Consider using the following scripts as a
+This is relatively straight forward. Consider using the following scripts as a
 guide.
 
 - [catch2](tools/build_catch2.sh)
@@ -104,6 +111,23 @@ Build using CMake as usual.
 $ cmake -GNinja -S. -Bbuild -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build
 $ ctest --test-dir build
+```
+
+If you would like to run clang-tidy as part of the build, configure with
+`ENABLE_CLANG_TIDY`,
+
+```
+$ cmake -GNinja -S. -Bbuild \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DENABLE_CLANG_TIDY=ON
+```
+
+Or you can explicitly specify `CMAKE_CXX_CLANG_TIDY`.
+
+```
+$ cmake -GNinja -S. -Bbuild \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_CXX_CLANG_TIDY="clang-tidy-21;--warnings-as-errors=*;--use-color"
 ```
 
 ### How to use with a cmake based build system
