@@ -24,7 +24,7 @@ enum class Message_level : uint8_t
   debug,
 };
 
-enum class Style
+enum class Style : uint8_t
 {
   plain,
   heading,

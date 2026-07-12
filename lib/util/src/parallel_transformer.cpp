@@ -96,7 +96,7 @@ void Parallel_transformer::thread_fun_()
     work();
 
     {
-      std::lock_guard lock(mutex_);
+      std::scoped_lock lock(mutex_);
       ++compleated_count_;
     }
 
