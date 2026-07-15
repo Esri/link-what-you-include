@@ -4,6 +4,8 @@
 #include <src/run_lwyi.hpp>
 
 #include <cli/command_options.hpp>
+#include <lwyi/config.hpp>
+#include <lwyi/load_config.hpp>
 #include <message/message.hpp>
 #include <src/run_lwyi_on_target.hpp>
 #include <src/run_tool.hpp>
@@ -20,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace target_model
@@ -57,7 +60,28 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     return std::unexpected(
       std::format("error: failed to load {}: {}", info_file.string(), load_result.error()));
   }
-  const auto target_model = loader->make_target_model();
+  const auto config_path = options.config_file.empty() ? (binary_dir / "lwyi-config.json")
+                                                       : std::filesystem::path(options.config_file);
+  std::optional<lwyi::Config> config;
+  if (std::filesystem::is_regular_file(config_path))
+  {
+    message::info("Loading config from {}", config_path.string());
+    auto loaded_config = lwyi::load_config(config_path);
+    if (!loaded_config.has_value())
+    {
+      return std::unexpected(loaded_config.error());
+    }
+    config = std::move(*loaded_config);
+  }
+  auto target_model = loader->make_target_model();
+  if (config.has_value())
+  {
+    for (const auto& [target, target_config] : config->targets)
+    {
+      target_model.set_interface_include_prefixes(target,
+                                                 target_config.interface_include_prefixes);
+    }
+  }
 
   std::vector<target_model::Target> selected_targets;
   selected_targets.reserve(options.targets.size());
@@ -83,6 +107,11 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     target_model.for_each_target(
       [&](const target_model::Target& target, const target_model::Target_data& target_data)
       {
+        if (config.has_value() && config->skip_validation(target.name))
+        {
+          return;
+        }
+
         if (!first_target)
         {
           message::blank_line();
@@ -91,14 +120,34 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
 
         message::heading("Target: {}", target.name);
 
-        success &=
-          run_lwyi_on_target(target_model, binary_dir, target, target_data, num_threads);
+        success &= run_lwyi_on_target(target_model, binary_dir, target, target_data, num_threads);
       });
   }
   else
   {
     for (const auto& target : selected_targets)
     {
+      auto otarget_data = target_model.get_target_data(target);
+      if (!otarget_data.has_value())
+      {
+        if (!first_target)
+        {
+          message::blank_line();
+        }
+        first_target = false;
+
+        message::heading("Target: {}", target.name);
+        message::error("No target named {} found", target.name);
+        success = false;
+        break;
+      }
+
+      if (config.has_value() && config->skip_validation(target.name))
+      {
+        message::note("Validation skipped by config.");
+        continue;
+      }
+
       if (!first_target)
       {
         message::blank_line();
@@ -107,16 +156,7 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
 
       message::heading("Target: {}", target.name);
 
-      auto otarget_data = target_model.get_target_data(target);
-      if (!otarget_data.has_value())
-      {
-        message::error("No target named {} found", target.name);
-        success = false;
-        break;
-      }
-
-      success &=
-        run_lwyi_on_target(target_model, binary_dir, target, *otarget_data, num_threads);
+      success &= run_lwyi_on_target(target_model, binary_dir, target, *otarget_data, num_threads);
     }
   }
 

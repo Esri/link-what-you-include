@@ -198,7 +198,6 @@ std::expected<void, std::string> Target_model_loader_impl::load_json(
     Target_data target_data;
 
     auto& interface_include_directories = raw_data[lookup("interface_include_directories")];
-    auto& interface_include_prefixes = raw_data[lookup("interface_include_prefixes")];
     auto& interface_headers = raw_data[lookup("interface_headers")];
     auto& interface_dependencies = raw_data[lookup("interface_dependencies")];
     auto& dependencies = raw_data[lookup("dependencies")];
@@ -209,10 +208,6 @@ std::expected<void, std::string> Target_model_loader_impl::load_json(
 
     target_data.interface_include_directories.insert(interface_include_directories.begin(),
                                                      interface_include_directories.end());
-    for (const auto& interface_include_prefix : interface_include_prefixes)
-    {
-      target_data.interface_include_prefixes.insert(std::string(interface_include_prefix));
-    }
     target_data.interface_headers.insert(interface_headers.begin(), interface_headers.end());
     for (const auto& interface_dependency : interface_dependencies)
     {

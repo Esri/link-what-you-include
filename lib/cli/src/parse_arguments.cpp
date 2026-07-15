@@ -36,6 +36,8 @@ Possible options:
 
   -d, --binary_dir DIR      Path to the directory with input files. Default is
                             the current directory.
+  -c, --config FILE         Path to lwyi config file. Default is lwyi-config.json
+                            in the build tree when present.
   -t, --targets TARGETS...  Limit analysis to the given targets.
   -j, --parallel COUNT      Number of threads used to process source files.
                             Default depends on system.
@@ -51,6 +53,7 @@ struct Options
   bool verbose{false};
   bool debug{false};
   std::string_view binary_dir;
+  std::string_view config_file;
   uint32_t num_threads{0};
   std::vector<std::string_view> targets;
   std::vector<std::string_view> sources;
@@ -63,6 +66,7 @@ constexpr auto parser = util::arg_parser<Options>()
                           .arg("-v", "--verbose", &Options::verbose)
                           .arg("--debug", &Options::debug)
                           .arg("-d", "--binary_dir", &Options::binary_dir)
+                          .arg("-c", "--config", &Options::config_file)
                           .arg("-t", "--targets", &Options::targets)
                           .arg("-j", "--parallel", &Options::num_threads)
                           .terminal_arg("--tool", &Options::tool_command);
@@ -146,6 +150,7 @@ std::expected<Command_options, std::string> parse_arguments(int argc, const char
   }
 
   return Command_options{options.binary_dir,
+                         options.config_file,
                          std::move(options.targets),
                          std::move(options.tool_command),
                          color_output,
