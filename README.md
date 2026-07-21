@@ -118,7 +118,7 @@ the header is located in one of its
 Since multiple targets could use the same include directory, one or more
 include prefix strings can be provided to disambiguate.
 
-Write a [lwyu-config.json](doc/lwyi-config.schema.json) file to associate prefix
+Write a [lwyi-config.json](doc/lwyi-config.schema.json) file to associate prefix
 strings with a target, and to exclude any targets from the validation. An
 [example config](lwyi-config.json) file exists for this project, and a
 [schema file](doc/lwyi-config.schema.json) describes the expected fields.

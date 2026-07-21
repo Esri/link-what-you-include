@@ -36,8 +36,9 @@ Possible options:
 
   -d, --binary_dir DIR      Path to the directory with input files. Default is
                             the current directory.
-  -c, --config FILE         Path to lwyi config file. Default is lwyi-config.json
-                            in the build tree when present.
+  -c, --config FILE         Path to the lwyi config file. Default is
+                            lwyi-config.json in the binary directory
+                            (--binary_dir) when present.
   -t, --targets TARGETS...  Limit analysis to the given targets.
   -j, --parallel COUNT      Number of threads used to process source files.
                             Default depends on system.

@@ -9,7 +9,9 @@
 
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <fstream>
+#include <functional>
 #include <set>
 #include <string>
 #include <system_error>
@@ -21,7 +23,8 @@ class Temp_file
 public:
   explicit Temp_file(const std::string& content)
   : path_(std::filesystem::temp_directory_path() /
-          std::filesystem::path{"lwyi-load-config-test.json"})
+          std::filesystem::path{std::format("lwyi-load-config-test-{}.json",
+                                            std::hash<std::string>{}(content))})
   {
     std::ofstream output(path_);
     output << content;

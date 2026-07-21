@@ -23,25 +23,9 @@ struct Config
 {
   std::map<target_model::Target, Target_config> targets;
 
-  [[nodiscard]] bool skip_validation(std::string_view target) const
-  {
-    if (auto it = targets.find(target_model::Target{std::string(target)}); it != targets.end())
-    {
-      return it->second.skip_validation;
-    }
-
-    return false;
-  }
+  [[nodiscard]] bool skip_validation(std::string_view target) const;
 
   [[nodiscard]] std::optional<std::reference_wrapper<const std::set<std::string>>> interface_include_prefixes(
-    std::string_view target) const
-  {
-    if (auto it = targets.find(target_model::Target{std::string(target)}); it != targets.end())
-    {
-      return std::cref(it->second.interface_include_prefixes);
-    }
-
-    return std::nullopt;
-  }
+    std::string_view target) const;
 };
 } // namespace lwyi

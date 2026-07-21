@@ -11,6 +11,7 @@ target_sources(lib_lwyi
     include/lwyi/strongly_connected_dependencies.hpp
   PRIVATE
     src/check_target.cpp
+    src/config.cpp
     src/dependency_visibility.cpp
     src/load_config.cpp
     src/strongly_connected_dependencies.cpp
