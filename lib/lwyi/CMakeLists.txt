@@ -5,17 +5,26 @@ add_library(lib_lwyi)
 target_sources(lib_lwyi
   PUBLIC FILE_SET HEADERS BASE_DIRS include FILES
     include/lwyi/check_target.hpp
+    include/lwyi/config.hpp
     include/lwyi/dependency_visibility.hpp
+    include/lwyi/load_config.hpp
     include/lwyi/strongly_connected_dependencies.hpp
+  PRIVATE FILE_SET private_headers TYPE HEADERS FILES
+    src/load_config_impl.hpp
   PRIVATE
     src/check_target.cpp
+    src/config.cpp
     src/dependency_visibility.cpp
+    src/load_config.cpp
+    src/load_config_impl.cpp
     src/strongly_connected_dependencies.cpp
   )
 target_link_libraries(lib_lwyi
   PUBLIC
     lib_scanner
     lib_target_model
+  PRIVATE
+    simdjson::simdjson
   )
 
 if(BUILD_TESTING)
@@ -24,7 +33,12 @@ if(BUILD_TESTING)
     PRIVATE
       test/check_target_test.cpp
       test/dependency_visibility_test.cpp
+      test/load_config_test.cpp
       test/strongly_connected_dependencies_test.cpp
+    )
+  # allow access to private headers
+  target_include_directories(lib_lwyi_test
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     )
   target_link_libraries(lib_lwyi_test
     PRIVATE

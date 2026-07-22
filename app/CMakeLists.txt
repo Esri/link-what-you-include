@@ -45,6 +45,7 @@ if(ENABLE_DOGFOODING)
         -DLWYI_BINARY_DIR=${CMAKE_BINARY_DIR}
         -DLWYI_EXPECT_COLOR=${DOGFOOD_COLOR}
         -DLWYI_EXPECT_MESSAGE_LEVEL=${DOGFOOD_MESSAGE_LEVEL}
+        -DLWYI_CONFIG=${CMAKE_SOURCE_DIR}/lwyi-config.json
         -P ${CMAKE_CURRENT_SOURCE_DIR}/test/dogfood_test.cmake
     )
     set_tests_properties(${name} PROPERTIES LABELS dogfood)

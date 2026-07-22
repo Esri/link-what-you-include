@@ -15,6 +15,7 @@
 #include <iterator>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -204,6 +205,16 @@ std::optional<Target> Target_model::map_header_to_target(const std::filesystem::
   }
 
   return {};
+}
+
+void Target_model::set_interface_include_prefixes(const Target& target,
+                                                  const std::set<std::string>& prefixes)
+{
+  if (auto it = std::ranges::lower_bound(target_to_target_data_, target, Less{});
+      it != target_to_target_data_.end() && it->first == target)
+  {
+    it->second.interface_include_prefixes = {prefixes.begin(), prefixes.end()};
+  }
 }
 
 void Target_model::for_each_target(

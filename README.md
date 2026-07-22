@@ -118,12 +118,16 @@ the header is located in one of its
 Since multiple targets could use the same include directory, one or more
 include prefix strings can be provided to disambiguate.
 
-Update your cmake logic to include
-[link_what_you_include.cmake](cmake/link_what_you_include.cmake) and call
-`link_what_you_include(target ...)` for every target you want to participate in
-the verification process. Configure the build system with a single-config
-generator and set the CMAKE_EXPORT_COMPILE_COMMANDS cache variable. Then run
-the lwyi executable and point it at the configured build directory.
+Write a [lwyi-config.json](doc/lwyi-config.schema.json) file to associate prefix
+strings with a target, and to exclude any targets from the validation. An
+[example config](lwyi-config.json) file exists for this project, and a
+[schema file](doc/lwyi-config.schema.json) describes the expected fields.
+
+Include [link_what_you_include-config.cmake](cmake/link_what_you_include-config.cmake)
+or use `find_package(link_what_you_include)` and call `link_what_you_include(target)`
+for every target you want to participate in the verification process. Configure the
+build system with a single-config generator. Then run the lwyi executable and point
+it at the configured build directory.
 
 ```
 $ lwyi -d /path/to/the/build/dir

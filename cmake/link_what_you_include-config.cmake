@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 include_guard(GLOBAL)
-
 # Usage:
 #
-#   link_what_you_include(<library_target> [include_prefix...])
+#   link_what_you_include(<library_target>)
 #   link_what_you_include(<executable_target>)
 #
 # This function collects high-level build system information for the given target for use by the
@@ -15,23 +14,19 @@ include_guard(GLOBAL)
 #
 # The link-what-you-include tool scans source files for `#include`'s and maps them to the libraries
 # they are associated with. This works best when the dependent target has the INTERFACE_HEADER_SETS
-# properties defined but this is not required. To add support for a library that does not have this
-# property set, one or more include prefix strings can be provided to disambiguate headers when
-# multiple libraries share the same INTERFACE_INCLUDE_DIRECTORIES.
-#
+# properties defined but this is not required.
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+cmake_file_api(QUERY API_VERSION 1 CODEMODEL 2)
+
 function(link_what_you_include target)
   set_property(GLOBAL APPEND PROPERTY LWYI__targets ${target})
   if(ARGN)
-    get_target_property(aliased ${target} ALIASED_TARGET)
-    if(aliased)
-      message(FATAL_ERROR "Setting an include prefix is not currently supported for an alias target")
-    endif()
-    set_property(TARGET ${target} PROPERTY LWYI__prefixes ${ARGN})
+    message(FATAL_ERROR "link_what_you_include() called with extra arguments: ${ARGN}")
   endif()
 endfunction()
 
 define_property(GLOBAL PROPERTY LWYI__targets)
-define_property(TARGET PROPERTY LWYI__prefixes)
 
 function(lwyi__list_to_array_element name target list)
   if(${list})
@@ -128,9 +123,6 @@ function(lwyi__write_json)
       list(FILTER dependencies EXCLUDE REGEX "\\$<LINK_ONLY:([^>]*)>")
     endif()
 
-    # interface_include_prefixes
-    get_target_property(interface_include_prefixes ${target} LWYI__prefixes)
-
     # verify_interface_header_sets_sources
     set(verify_interface_header_sets_sources
         "$<$<TARGET_EXISTS:${target}_verify_interface_header_sets>:$<TARGET_PROPERTY:${target}_verify_interface_header_sets,SOURCES>>"
@@ -138,7 +130,6 @@ function(lwyi__write_json)
 
     lwyi__list_to_array_element("interface_headers" ${target} interface_headers)
     lwyi__list_to_array_element("interface_include_directories" ${target} interface_include_directories)
-    lwyi__list_to_array_element("interface_include_prefixes" ${target} interface_include_prefixes)
     lwyi__list_to_array_element("interface_dependencies" ${target} interface_dependencies)
     lwyi__list_to_array_element("dependencies" ${target} dependencies)
     lwyi__list_to_array_element("sources" ${target} sources)
@@ -151,7 +142,6 @@ function(lwyi__write_json)
       object_content
       ${interface_headers}
       ${interface_include_directories}
-      ${interface_include_prefixes}
       ${interface_dependencies}
       ${dependencies}
       ${sources}

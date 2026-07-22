@@ -14,6 +14,7 @@ namespace cli
 struct Command_options
 {
   std::string_view binary_dir;
+  std::string_view config_file;
   std::vector<std::string_view> targets;
   std::vector<std::string_view> tool_command;
   message::Color_output color_output;

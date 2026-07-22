@@ -73,9 +73,9 @@ if(BUILD_TESTING)
 endif()
 
 if(ENABLE_DOGFOODING)
-  include(cmake/link_what_you_include.cmake)
-  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-  link_what_you_include(clangTooling clang)
+  set(link_what_you_include_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+  find_package(link_what_you_include REQUIRED)
+  link_what_you_include(clangTooling)
 endif()
 
 ################################################################################
@@ -93,4 +93,4 @@ add_subdirectory(app)
 ################################################################################
 ## install cmake support script
 
-install(FILES cmake/link_what_you_include.cmake DESTINATION ${CMAKE_INSTALL_DATADIR}/lwyi)
+install(FILES cmake/link_what_you_include-config.cmake DESTINATION ${CMAKE_INSTALL_DATADIR}/lwyi)

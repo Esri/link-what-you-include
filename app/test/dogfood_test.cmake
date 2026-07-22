@@ -17,6 +17,10 @@ if(NOT DEFINED LWYI_EXPECT_MESSAGE_LEVEL)
   message(FATAL_ERROR "LWYI_EXPECT_MESSAGE_LEVEL is required")
 endif()
 
+if(NOT DEFINED LWYI_CONFIG)
+  message(FATAL_ERROR "LWYI_CONFIG is required")
+endif()
+
 set(common_regexes
   "Build System"
   "Loading metadata from .*link_what_you_include_info\\.json"
@@ -33,6 +37,9 @@ set(expect_verbose FALSE)
 set(expect_debug FALSE)
 
 set(command_args "${LWYI_EXECUTABLE}" -d "${LWYI_BINARY_DIR}")
+if(LWYI_CONFIG)
+  list(APPEND command_args -c "${LWYI_CONFIG}")
+endif()
 if(LWYI_EXPECT_MESSAGE_LEVEL STREQUAL "debug")
   set(expect_verbose TRUE)
   set(expect_debug TRUE)

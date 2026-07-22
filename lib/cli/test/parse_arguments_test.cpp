@@ -153,6 +153,27 @@ TEST_CASE("cli: parse_arguments rejects invalid attached integer arg", "[lwyi]")
   REQUIRE(!result.has_value());
 }
 
+TEST_CASE("cli: parse_arguments for config", "[lwyi]")
+{
+  std::vector<std::vector<const char*>> args_list{
+    {"exe_name", "-c", "lwyi-config.json", "-d", "some/dir"},
+    {"exe_name", "--config", "lwyi-config.json", "-d", "some/dir"},
+  };
+  for (const auto& args : args_list)
+  {
+    INFO(to_string(args));
+
+    const auto argc = static_cast<int>(args.size());
+    const auto argv = args.data();
+    auto result = cli::parse_arguments(argc, argv);
+    REQUIRE(result.has_value());
+
+    const auto& options = result.value();
+    CHECK(options.config_file == "lwyi-config.json");
+    CHECK(options.binary_dir == "some/dir");
+  }
+}
+
 TEST_CASE("cli: parse_arguments when no --color", "[lwyi]")
 {
   std::vector<const char*> args{"exe_name", "-d", "some/dir"};

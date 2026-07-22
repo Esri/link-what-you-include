@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/lwyi-config.schema.json",
+  "title": "LWYI Config",
+  "type": "object",
+  "properties": {
+    "targets": {
+      "type": "object",
+      "description": "Per-target overrides keyed by target name.",
+      "additionalProperties": {
+        "$ref": "#/$defs/targetConfig"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "targetConfig": {
+      "type": "object",
+      "properties": {
+        "skip_validation": {
+          "type": "boolean",
+          "description": "If true, lwyi will skip validation for this target."
+        },
+        "interface_include_prefixes": {
+          "type": "array",
+          "description": "Additional interface include prefixes for this target.",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
