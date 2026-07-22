@@ -1,59 +1,21 @@
 // Copyright (c) 2025 Environmental Systems Research Institute, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <lwyi/load_config.hpp>
+#include <src/load_config_impl.hpp>
 
 #include <target_model/target.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <expected>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <functional>
+#include <simdjson.h>
+
+#include <cstring>
 #include <set>
 #include <string>
-#include <system_error>
-
-namespace
-{
-class Temp_file
-{
-public:
-  explicit Temp_file(const std::string& content)
-  : path_(std::filesystem::temp_directory_path() /
-          std::filesystem::path{std::format("lwyi-load-config-test-{}.json",
-                                            std::hash<std::string>{}(content))})
-  {
-    std::ofstream output(path_);
-    output << content;
-  }
-
-  Temp_file(const Temp_file&) = delete;
-  Temp_file& operator=(const Temp_file&) = delete;
-  Temp_file(Temp_file&&) = delete;
-  Temp_file& operator=(Temp_file&&) = delete;
-
-  ~Temp_file()
-  {
-    std::error_code error;
-    std::filesystem::remove(path_, error);
-  }
-
-  [[nodiscard]] const std::filesystem::path& path() const
-  {
-    return path_;
-  }
-
-private:
-  std::filesystem::path path_;
-};
-} // namespace
 
 TEST_CASE("lwyi: load_config loads target overrides", "[lwyi]")
 {
-  Temp_file file{R"({
+  const char* json = R"({
   "targets": {
     "liba": {
       "skip_validation": true,
@@ -64,9 +26,10 @@ TEST_CASE("lwyi: load_config loads target overrides", "[lwyi]")
       "interface_include_prefixes": []
     }
   }
-})"};
+})";
+  simdjson::padded_string raw_config(json, std::strlen(json));
 
-  auto result = lwyi::load_config(file.path());
+  auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(result.has_value());
 
   const auto& config = result.value();
@@ -85,22 +48,24 @@ TEST_CASE("lwyi: load_config loads target overrides", "[lwyi]")
 
 TEST_CASE("lwyi: load_config succeeds when targets is absent", "[lwyi]")
 {
-  Temp_file file{"{}"};
+  const char* json = "{}";
+  simdjson::padded_string raw_config(json, std::strlen(json));
 
-  auto result = lwyi::load_config(file.path());
+  auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(result.has_value());
   CHECK(result->targets.empty());
 }
 
 TEST_CASE("lwyi: load_config defaults missing target fields", "[lwyi]")
 {
-  Temp_file file{R"({
+  const char* json = R"({
   "targets": {
     "liba": {}
   }
-})"};
+})";
+  simdjson::padded_string raw_config(json, std::strlen(json));
 
-  auto result = lwyi::load_config(file.path());
+  auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(result.has_value());
 
   const auto it = result->targets.find(target_model::Target{"liba"});
@@ -111,39 +76,41 @@ TEST_CASE("lwyi: load_config defaults missing target fields", "[lwyi]")
 
 TEST_CASE("lwyi: load_config fails for invalid skip_validation type", "[lwyi]")
 {
-  Temp_file file{R"({
+  const char* json = R"({
   "targets": {
     "liba": {
       "skip_validation": "true"
     }
   }
-})"};
+})";
+  simdjson::padded_string raw_config(json, std::strlen(json));
 
-  auto result = lwyi::load_config(file.path());
+  auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(!result.has_value());
-  CHECK(result.error().find("Failed to parse config file") != std::string::npos);
+  CHECK(result.error().find("skip_validation") != std::string::npos);
 }
 
 TEST_CASE("lwyi: load_config fails for invalid interface_include_prefixes type", "[lwyi]")
 {
-  Temp_file file{R"({
+  const char* json = R"({
   "targets": {
     "liba": {
       "interface_include_prefixes": "foo"
     }
   }
-})"};
+})";
+  simdjson::padded_string raw_config(json, std::strlen(json));
 
-  auto result = lwyi::load_config(file.path());
+  auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(!result.has_value());
-  CHECK(result.error().find("Failed to parse config file") != std::string::npos);
+  CHECK(result.error().find("interface_include_prefixes") != std::string::npos);
 }
 
 TEST_CASE("lwyi: load_config fails for invalid JSON", "[lwyi]")
 {
-  Temp_file file{"{"};
+  const char* json = "{";
+  simdjson::padded_string raw_config(json, std::strlen(json));
 
-  auto result = lwyi::load_config(file.path());
+  auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(!result.has_value());
-  CHECK(result.error().find("Failed to parse config file") != std::string::npos);
 }

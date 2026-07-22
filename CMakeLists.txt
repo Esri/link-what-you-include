@@ -93,4 +93,4 @@ add_subdirectory(app)
 ################################################################################
 ## install cmake support script
 
-install(FILES cmake/link_what_you_include.cmake DESTINATION ${CMAKE_INSTALL_DATADIR}/lwyi)
+install(FILES cmake/link_what_you_include-config.cmake DESTINATION ${CMAKE_INSTALL_DATADIR}/lwyi)

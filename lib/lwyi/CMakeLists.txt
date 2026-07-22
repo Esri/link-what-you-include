@@ -9,11 +9,14 @@ target_sources(lib_lwyi
     include/lwyi/dependency_visibility.hpp
     include/lwyi/load_config.hpp
     include/lwyi/strongly_connected_dependencies.hpp
+  PRIVATE FILE_SET private_headers TYPE HEADERS FILES
+    src/load_config_impl.hpp
   PRIVATE
     src/check_target.cpp
     src/config.cpp
     src/dependency_visibility.cpp
     src/load_config.cpp
+    src/load_config_impl.cpp
     src/strongly_connected_dependencies.cpp
   )
 target_link_libraries(lib_lwyi
@@ -32,6 +35,10 @@ if(BUILD_TESTING)
       test/dependency_visibility_test.cpp
       test/load_config_test.cpp
       test/strongly_connected_dependencies_test.cpp
+    )
+  # allow access to private headers
+  target_include_directories(lib_lwyi_test
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     )
   target_link_libraries(lib_lwyi_test
     PRIVATE
