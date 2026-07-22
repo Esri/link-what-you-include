@@ -246,7 +246,7 @@ private:
           std::stringstream ss(std::string{param});
           ss >> options.*value;
 
-          if (ss.bad())
+          if (ss.fail() || !ss.eof())
           {
             error_string =
               std::format("argument {} expects an integer value, got {}.", arg, param);

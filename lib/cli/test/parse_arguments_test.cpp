@@ -142,6 +142,17 @@ TEST_CASE("cli: parse_arguments for tool", "[lwyi]")
   CHECK(options.tool_command == expected);
 }
 
+TEST_CASE("cli: parse_arguments rejects invalid attached integer arg", "[lwyi]")
+{
+  std::vector<const char*> args{"exe_name", "-jasdf"};
+  INFO(to_string(args));
+
+  const auto argc = static_cast<int>(args.size());
+  const auto argv = args.data();
+  auto result = cli::parse_arguments(argc, argv);
+  REQUIRE(!result.has_value());
+}
+
 TEST_CASE("cli: parse_arguments when no --color", "[lwyi]")
 {
   std::vector<const char*> args{"exe_name", "-d", "some/dir"};
