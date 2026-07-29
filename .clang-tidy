@@ -33,4 +33,5 @@ Checks: '-*,
 CheckOptions:
   cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: 'true'
   readability-container-size-empty.ExcludedComparisonTypes: '::std::array;::std::basic_string;::std::basic_string_view'
+HeaderFilterRegex: '.*'
 ...
