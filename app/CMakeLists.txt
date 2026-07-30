@@ -27,14 +27,11 @@ target_link_libraries(
     lib_scanner
     lib_target_model
     lib_util
-    simdjson::simdjson
   )
 
 install(TARGETS lwyi)
 
 if(ENABLE_DOGFOODING)
-  link_what_you_include(lwyi)
-
   function(add_dogfood_test name)
     cmake_parse_arguments(DOGFOOD "COLOR" "MESSAGE_LEVEL" "" ${ARGN})
 

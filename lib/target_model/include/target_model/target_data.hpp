@@ -7,19 +7,27 @@
 
 #include <cstddef>
 #include <filesystem>
-#include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace target_model
 {
+struct Source_location
+{
+  std::filesystem::path file;
+  size_t line{0U};
+};
+
 struct Target_data
 {
+  bool imported = false;
   std::unordered_set<std::filesystem::path> interface_headers;
   std::unordered_set<std::filesystem::path> interface_include_directories;
   std::unordered_set<std::string> interface_include_prefixes;
   std::unordered_set<Target> interface_dependencies;
   std::unordered_set<Target> dependencies;
+  std::unordered_map<Target, Source_location> dependency_locations;
   std::unordered_set<std::filesystem::path> sources;
   std::unordered_set<std::filesystem::path> headers;
   std::unordered_set<std::filesystem::path> verify_interface_header_sets_sources;

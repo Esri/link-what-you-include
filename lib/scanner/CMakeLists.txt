@@ -84,8 +84,3 @@ if(BUILD_TESTING)
     )
   catch_discover_tests(lib_scanner_test ADD_TAGS_AS_LABELS)
 endif()
-
-if(ENABLE_DOGFOODING)
-  link_what_you_include(lib_scanner)
-  link_what_you_include(lib_scanner_test)
-endif()

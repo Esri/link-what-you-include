@@ -75,7 +75,31 @@ endif()
 if(ENABLE_DOGFOODING)
   set(link_what_you_include_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
   find_package(link_what_you_include REQUIRED)
-  link_what_you_include(clangTooling)
+
+  # Teach CMake about headers for our imported targets
+  # Note, this should ideally be done by the upstream package
+  get_target_property(simdjson_include simdjson::simdjson INTERFACE_INCLUDE_DIRECTORIES)
+  target_sources(simdjson::simdjson
+    INTERFACE
+    FILE_SET HEADERS
+    BASE_DIRS ${simdjson_include}
+    FILES ${simdjson_include}/simdjson.h
+  )
+  set_target_properties(simdjson::simdjson PROPERTIES SYSTEM TRUE)
+  get_target_property(clang_include clangTooling INTERFACE_INCLUDE_DIRECTORIES)
+  target_sources(clangTooling
+    INTERFACE
+    FILE_SET HEADERS
+    BASE_DIRS ${clang_include}
+  )
+  set_target_properties(clangTooling PROPERTIES SYSTEM TRUE)
+  get_target_property(catch_include Catch2::Catch2 INTERFACE_INCLUDE_DIRECTORIES)
+  target_sources(Catch2::Catch2WithMain
+    INTERFACE
+    FILE_SET HEADERS
+    BASE_DIRS ${catch_include}/catch2
+  )
+  set_target_properties(Catch2::Catch2WithMain PROPERTIES SYSTEM TRUE)
 endif()
 
 ################################################################################

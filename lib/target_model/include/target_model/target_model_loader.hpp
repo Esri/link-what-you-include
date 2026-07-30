@@ -5,6 +5,7 @@
 
 #include <expected>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 namespace target_model
@@ -18,7 +19,8 @@ public:
 
   virtual ~Target_model_loader() = default;
 
-  virtual std::expected<void, std::string> load_json(const std::filesystem::path& path) = 0;
+  virtual std::expected<void, std::string> 
+    load_directory(const std::filesystem::path& path) = 0;
 
   virtual Target_model make_target_model() = 0;
 };

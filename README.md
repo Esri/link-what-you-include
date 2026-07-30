@@ -105,18 +105,17 @@ $ ctest --test-dir build
 
 ### How to use with a cmake based build system
 
-The tool works best if targets define
-[`INTERFACE_HEADER_SETS`](https://cmake.org/cmake/help/latest/prop_tgt/INTERFACE_HEADER_SETS.html)
-and
-[`VERIFY_INTERFACE_HEADER_SETS`](https://cmake.org/cmake/help/latest/prop_tgt/VERIFY_INTERFACE_HEADER_SETS.html#prop_tgt:VERIFY_INTERFACE_HEADER_SETS)
-is used. The former makes it easy to associate an included header to its
-corresponding target and the latter makes it easy to scan interface headers with
-the correct preprocessor flags. If a target does not define the
-`INTERFACE_HEADER_SETS` property, included headers will still be associated if
-the header is located in one of its
-[`INTERFACE_INCLUDE_DIRECTORIES`](https://cmake.org/cmake/help/latest/prop_tgt/INTERFACE_INCLUDE_DIRECTORIES.html).
-Since multiple targets could use the same include directory, one or more
-include prefix strings can be provided to disambiguate.
+CMake 4.2 or newer is required.
+
+The tool expects targets to define their public facing headers using
+[`File Sets`](https://cmake.org/cmake/help/latest/command/target_sources.html#file-sets)
+in order to accurately compare the source file include graph to the target
+model link graph.
+
+If a target does not define any public facing headers, any header under the
+`BASE_DIR` of one of its `INTERFACE_HEADER_SETS` will be associated with the
+target. Since multiple targets could use the same include directory, one or
+more include prefix strings can be provided to disambiguate.
 
 Write a [lwyi-config.json](doc/lwyi-config.schema.json) file to associate prefix
 strings with a target, and to exclude any targets from the validation. An

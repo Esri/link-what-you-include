@@ -10,13 +10,13 @@ target_sources(lib_target_model
     include/target_model/target_model_loader.hpp
   PRIVATE FILE_SET private_headers TYPE HEADERS FILES
     src/file_loader.hpp
+    src/file_api_target_model_loader_impl.hpp
     src/real_file_loader.hpp
-    src/target_model_loader_impl.hpp
   PRIVATE
+    src/file_api_target_model_loader_impl.cpp
     src/real_file_loader.cpp
     src/target_data.cpp
     src/target_model.cpp
-    src/target_model_loader_impl.cpp
   )
 target_link_libraries(lib_target_model
   PRIVATE
@@ -28,7 +28,7 @@ if(BUILD_TESTING)
   add_executable(lib_target_model_test)
   target_sources(lib_target_model_test
     PRIVATE
-      test/target_model_loader_impl_test.cpp
+      test/file_api_target_model_loader_impl_test.cpp
       test/target_data_test.cpp
     )
   # allow access to private headers
@@ -39,12 +39,6 @@ if(BUILD_TESTING)
     PRIVATE
       lib_target_model
       Catch2::Catch2WithMain
-      simdjson::simdjson
     )
   catch_discover_tests(lib_target_model_test ADD_TAGS_AS_LABELS)
-endif()
-
-if(ENABLE_DOGFOODING)
-  link_what_you_include(lib_target_model)
-  link_what_you_include(lib_target_model_test)
 endif()

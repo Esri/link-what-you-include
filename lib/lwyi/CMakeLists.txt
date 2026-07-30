@@ -46,11 +46,7 @@ if(BUILD_TESTING)
       lib_scanner
       lib_target_model
       Catch2::Catch2WithMain
+      simdjson::simdjson
     )
   catch_discover_tests(lib_lwyi_test ADD_TAGS_AS_LABELS)
-endif()
-
-if(ENABLE_DOGFOODING)
-  link_what_you_include(lib_lwyi)
-  link_what_you_include(lib_lwyi_test)
 endif()

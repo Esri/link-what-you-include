@@ -27,8 +27,3 @@ if(BUILD_TESTING)
     )
   catch_discover_tests(lib_util_test ADD_TAGS_AS_LABELS)
 endif()
-
-if(ENABLE_DOGFOODING)
-  link_what_you_include(lib_util)
-  link_what_you_include(lib_util_test)
-endif()

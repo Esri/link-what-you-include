@@ -19,15 +19,12 @@
 
 namespace target_model
 {
-class File_loader;
-class Target_model;
-
-class Target_model_loader_impl : public Target_model_loader
+class File_api_target_model_loader_impl : public Target_model_loader
 {
 public:
-  explicit Target_model_loader_impl(std::unique_ptr<File_loader> file_loader);
+  explicit File_api_target_model_loader_impl(std::unique_ptr<File_loader> file_loader);
 
-  std::expected<void, std::string> load_json(const std::filesystem::path& path) override;
+  std::expected<void, std::string> load_directory(const std::filesystem::path& path) override;
 
   Target_model make_target_model() override;
 
@@ -36,5 +33,4 @@ private:
   simdjson::ondemand::parser parser_;
   std::vector<std::pair<Target, Target_data>> target_to_target_data_;
 };
-
 } // namespace target_model

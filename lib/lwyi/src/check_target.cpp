@@ -48,7 +48,6 @@ std::vector<LWYI_error> check_target(const target_model::Target_model& target_mo
                                      [[maybe_unused]] const target_model::Target& target,
                                      const target_model::Target_data& target_data,
                                      const scanner::Intransitive_includes& target_includes)
-
 {
   std::map<target_model::Target, Visibility> visibility_map;
 
@@ -93,7 +92,17 @@ std::vector<LWYI_error> check_target(const target_model::Target_model& target_mo
     {
       continue;
     }
-    LWYI_error error{dep, visibility.linked_visibility, visibility.included_visibility, {}};
+    std::optional<target_model::Source_location> linked_location;
+    if (auto it = target_data.dependency_locations.find(dep); it != target_data.dependency_locations.end())
+    {
+      linked_location = it->second;
+    }
+
+    LWYI_error error{dep,
+                     visibility.linked_visibility,
+                     visibility.included_visibility,
+                     std::move(linked_location),
+                     {}};
     if (!!(visibility.included_visibility & Dependency_visibility::interface_scope))
     {
       auto it = included_interface_deps_map.find(dep);

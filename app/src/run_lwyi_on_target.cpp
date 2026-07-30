@@ -21,6 +21,23 @@
 
 namespace
 {
+std::string_view visibility_to_string(lwyi::Dependency_visibility visibility)
+{
+  switch (visibility)
+  {
+    case lwyi::Dependency_visibility::none:
+      return "none";
+    case lwyi::Dependency_visibility::private_scope:
+      return "PRIVATE";
+    case lwyi::Dependency_visibility::interface_scope:
+      return "INTERFACE";
+    case lwyi::Dependency_visibility::public_scope:
+      return "PUBLIC";
+  }
+
+  return "none";
+}
+
 std::string describe_linked_visibility(lwyi::Dependency_visibility visibility,
                                        std::string_view target_name)
 {
@@ -29,28 +46,24 @@ std::string describe_linked_visibility(lwyi::Dependency_visibility visibility,
     case lwyi::Dependency_visibility::none:
       return std::format("does not link to {}", target_name);
     case lwyi::Dependency_visibility::private_scope:
-      return std::format("links to {} with PRIVATE scope", target_name);
     case lwyi::Dependency_visibility::interface_scope:
-      return std::format("links to {} with INTERFACE scope", target_name);
     case lwyi::Dependency_visibility::public_scope:
-      return std::format("links to {} with PUBLIC scope", target_name);
+      return std::format("links to {} with {} scope", target_name, visibility_to_string(visibility));
   }
 
   return {};
 }
 
-std::string_view describe_included_visibility(lwyi::Dependency_visibility visibility)
+std::string describe_included_visibility(lwyi::Dependency_visibility visibility)
 {
   switch (visibility)
   {
     case lwyi::Dependency_visibility::none:
       return "not included";
     case lwyi::Dependency_visibility::private_scope:
-      return "included with PRIVATE scope";
     case lwyi::Dependency_visibility::interface_scope:
-      return "included with INTERFACE scope";
     case lwyi::Dependency_visibility::public_scope:
-      return "included with PUBLIC scope";
+      return std::format("included with {} scope", visibility_to_string(visibility));
   }
 
   return {};
@@ -109,6 +122,13 @@ bool run_lwyi_on_target(const target_model::Target_model& target_model,
                    target.name,
                    describe_linked_visibility(error.linked_visibility, error.target.name),
                    describe_included_visibility(error.included_visibility));
+
+    if (error.linked_location.has_value())
+    {
+      message::note("linked in {}:{}",
+                    error.linked_location->file.string(),
+                    error.linked_location->line);
+    }
 
     for (const auto& include : error.sample_includes)
     {

@@ -6,7 +6,9 @@
 #include <lwyi/dependency_visibility.hpp>
 #include <scanner/include.hpp>
 #include <target_model/target.hpp>
+#include <target_model/target_data.hpp>
 
+#include <optional>
 #include <vector>
 
 namespace scanner
@@ -27,6 +29,7 @@ struct LWYI_error
   target_model::Target target;
   Dependency_visibility linked_visibility;
   Dependency_visibility included_visibility;
+  std::optional<target_model::Source_location> linked_location;
   std::vector<scanner::Include> sample_includes;
 };
 

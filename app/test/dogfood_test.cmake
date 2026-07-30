@@ -23,7 +23,7 @@ endif()
 
 set(common_regexes
   "Build System"
-  "Loading metadata from .*link_what_you_include_info\\.json"
+  "Loading metadata from CMake File API in"
   "Scanning with [0-9]+ thread"
 )
 set(verbose_regexes

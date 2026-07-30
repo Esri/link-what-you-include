@@ -1,10 +1,2 @@
 {
-  "targets": {
-    "clangTooling": {
-      "skip_validation": true,
-      "interface_include_prefixes": [
-        "clang"
-      ]
-    }
-  }
 }

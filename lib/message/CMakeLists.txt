@@ -8,7 +8,3 @@ target_sources(lib_message
   PRIVATE
     src/message.cpp
   )
-
-if(ENABLE_DOGFOODING)
-  link_what_you_include(lib_message)
-endif()

@@ -44,21 +44,13 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     }
   }
 
-  const auto info_file = binary_dir / "link_what_you_include_info.json";
   message::heading("Build System");
-  if (!std::filesystem::is_regular_file(info_file))
-  {
-    return std::unexpected(std::format("error: {} is not a file", info_file.string()));
-  }
-
-  message::info("Loading metadata from {}", info_file.string());
-
   auto loader = target_model::Target_model_loader::create();
-  const auto load_result = loader->load_json(info_file);
+  message::info("Loading metadata from CMake File API in {}", binary_dir.string());
+  const auto load_result = loader->load_directory(binary_dir);
   if (!load_result.has_value())
   {
-    return std::unexpected(
-      std::format("error: failed to load {}: {}", info_file.string(), load_result.error()));
+    return std::unexpected(load_result.error());
   }
   const auto config_path = options.config_file.empty() ? (binary_dir / "lwyi-config.json")
                                                        : std::filesystem::path(options.config_file);
@@ -107,7 +99,7 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     target_model.for_each_target(
       [&](const target_model::Target& target, const target_model::Target_data& target_data)
       {
-        if (config.has_value() && config->skip_validation(target.name))
+        if ((config.has_value() && config->skip_validation(target.name)) || target_data.imported)
         {
           return;
         }
