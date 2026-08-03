@@ -8,7 +8,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <cstring>
 #include <expected>
 #include <filesystem>
 #include <fstream>
@@ -72,12 +71,13 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
 
   temp_directory.write(".cmake/api/v1/reply/codemodel-v2-123.json",
                        R"===({
-  "version": { "major": 2, "minor": 9 },
+  "version": { "major": 2, "minor": 10 },
   "paths": { "source": "/some/source" },
   "configurations": [
     {
       "targets": [
         { "id": "liba::@1", "name": "liba", "jsonFile": "target-liba.json" },
+        { "id": "liba_verify_interface_header_sets::@1", "name": "liba_verify_interface_header_sets", "jsonFile": "target-liba-verify.json" },
         { "id": "libb::@1", "name": "libb", "jsonFile": "target-libb.json" }
       ]
     }
@@ -95,6 +95,16 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   "sources": [
     { "path": "/some/source/liba.cpp" },
     { "path": "/some/source/include/liba/liba.h", "fileSetIndexes": [0] }
+  ],
+  "compileDependencies": []
+})===");
+  temp_directory.write(".cmake/api/v1/reply/target-liba-verify.json",
+                       R"===({
+  "id": "liba_verify_interface_header_sets::@1",
+  "name": "liba_verify_interface_header_sets",
+  "type": "EXECUTABLE",
+  "sources": [
+    { "path": "/some/build/liba_verify_interface_header_sets/liba/liba.h.cxx" }
   ],
   "compileDependencies": []
 })===");
@@ -129,12 +139,14 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
     FAIL("Target data not found for liba");
   }
   REQUIRE(data.has_value());
-  const auto& liba = data->get();
+  const auto& liba = data->get(); // NOLINT(bugprone-unchecked-optional-access)
   CHECK(liba.interface_include_directories.empty());
   CHECK(liba.interface_headers ==
         std::unordered_set<std::filesystem::path>{"/some/source/include/liba/liba.h"});
   CHECK(liba.sources == std::unordered_set<std::filesystem::path>{"/some/source/liba.cpp",
                                                                   "/some/source/include/liba/liba.h"});
+  CHECK(liba.verify_interface_header_sets_sources ==
+        std::unordered_set<std::filesystem::path>{"/some/build/liba_verify_interface_header_sets/liba/liba.h.cxx"});
   CHECK(liba.dependencies.empty());
   CHECK(liba.interface_dependencies.empty());
 
@@ -143,7 +155,7 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
     FAIL("Target data not found for libb");
   }
   REQUIRE(data.has_value());
-  const auto& libb = data->get();
+  const auto& libb = data->get(); // NOLINT(bugprone-unchecked-optional-access)
   CHECK(libb.interface_include_directories.empty());
   CHECK(libb.dependencies == std::unordered_set<target_model::Target>{{"liba"}});
   CHECK(libb.interface_dependencies == std::unordered_set<target_model::Target>{{"liba"}});

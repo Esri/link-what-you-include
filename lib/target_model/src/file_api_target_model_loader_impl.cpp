@@ -12,6 +12,7 @@
 
 #include <simdjson.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -34,7 +36,7 @@ namespace
 {
 
 constexpr int FILE_API_MAJOR_VERSION_REQUIRED = 2;
-constexpr int FILE_API_MINOR_VERSION_REQUIRED = 9;
+constexpr int FILE_API_MINOR_VERSION_REQUIRED = 10;
 
 struct Target_info
 {
@@ -654,6 +656,7 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
   }
 
   std::map<std::string, std::string> id_to_name;
+  std::map<std::string, std::vector<std::filesystem::path>> verify_sources_by_base_target;
   std::vector<std::pair<Target, Target_data>> target_to_target_data;
 
   std::vector<std::pair<std::string, std::string>> target_id_to_json;
@@ -726,6 +729,23 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
       return std::unexpected(target_info.error());
     }
 
+    constexpr std::string_view verify_suffix = "_verify_interface_header_sets";
+    if (target_info->name.size() > verify_suffix.size() &&
+        target_info->name.ends_with(verify_suffix))
+    {
+      const auto base_target_name =
+        target_info->name.substr(0, target_info->name.size() - verify_suffix.size());
+      std::vector<std::filesystem::path> verify_sources;
+      verify_sources.reserve(target_info->sources.size());
+      for (const auto& source : target_info->sources)
+      {
+        auto candidate = source.is_relative() ? source_root / source : source;
+        verify_sources.push_back(candidate.lexically_normal());
+      }
+      verify_sources_by_base_target[std::string(base_target_name)] = std::move(verify_sources);
+      continue;
+    }
+
     if (!is_linkable_target_type(target_info->type))
     {
       continue;
@@ -746,8 +766,6 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
     {
       auto candidate = header.is_relative() ? source_root / header : header;
       target_data.interface_headers.insert(candidate.lexically_normal());
-      target_data.verify_interface_header_sets_sources.insert(
-        std::filesystem::path(std::filesystem::path(candidate).string() + ".cpp").lexically_normal());
     }
     for (const auto& source : target_info->sources)
     {
@@ -775,6 +793,18 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
     }
 
     target_to_target_data.emplace_back(Target{target_info->name}, std::move(target_data));
+  }
+
+  for (const auto& [base_target_name, verify_sources] : verify_sources_by_base_target)
+  {
+    auto it = std::ranges::find_if(target_to_target_data,
+                                   [&](const auto& pair)
+                                   { return pair.first.name == base_target_name; });
+    if (it != target_to_target_data.end())
+    {
+      it->second.verify_interface_header_sets_sources.insert(verify_sources.begin(),
+                                                             verify_sources.end());
+    }
   }
 
   return target_to_target_data;

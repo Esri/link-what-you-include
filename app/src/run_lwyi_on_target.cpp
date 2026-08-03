@@ -17,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace
@@ -35,38 +36,26 @@ std::string_view visibility_to_string(lwyi::Dependency_visibility visibility)
       return "PUBLIC";
   }
 
-  return "none";
+  std::unreachable();
 }
 
 std::string describe_linked_visibility(lwyi::Dependency_visibility visibility,
                                        std::string_view target_name)
 {
-  switch (visibility)
+  if (visibility == lwyi::Dependency_visibility::none)
   {
-    case lwyi::Dependency_visibility::none:
       return std::format("does not link to {}", target_name);
-    case lwyi::Dependency_visibility::private_scope:
-    case lwyi::Dependency_visibility::interface_scope:
-    case lwyi::Dependency_visibility::public_scope:
-      return std::format("links to {} with {} scope", target_name, visibility_to_string(visibility));
   }
-
-  return {};
+  return std::format("links to {} with {} scope", target_name, visibility_to_string(visibility));
 }
 
 std::string describe_included_visibility(lwyi::Dependency_visibility visibility)
 {
-  switch (visibility)
+  if (visibility == lwyi::Dependency_visibility::none)
   {
-    case lwyi::Dependency_visibility::none:
       return "not included";
-    case lwyi::Dependency_visibility::private_scope:
-    case lwyi::Dependency_visibility::interface_scope:
-    case lwyi::Dependency_visibility::public_scope:
-      return std::format("included with {} scope", visibility_to_string(visibility));
   }
-
-  return {};
+  return std::format("included with {} scope", visibility_to_string(visibility));
 }
 } // namespace
 
