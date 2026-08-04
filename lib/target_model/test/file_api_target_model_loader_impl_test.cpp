@@ -78,7 +78,8 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
       "targets": [
         { "id": "liba::@1", "name": "liba", "jsonFile": "target-liba.json" },
         { "id": "liba_verify_interface_header_sets::@1", "name": "liba_verify_interface_header_sets", "jsonFile": "target-liba-verify.json" },
-        { "id": "libb::@1", "name": "libb", "jsonFile": "target-libb.json" }
+        { "id": "libb::@1", "name": "libb", "jsonFile": "target-libb.json" },
+        { "id": "libinterface::@1", "name": "libinterface", "jsonFile": "target-libinterface.json" }
       ]
     }
   ]
@@ -119,11 +120,24 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
     { "path": "/some/source/libb.cpp" }
   ],
   "interfaceCompileDependencies": [
-    { "id": "liba::@1" }
+    { "id": "liba::@1" },
+    { "id": "libinterface::@1" }
   ],
   "compileDependencies": [
     { "id": "liba::@1" }
   ]
+})===");
+  temp_directory.write(".cmake/api/v1/reply/target-libinterface.json",
+                       R"===({
+  "id": "libinterface::@1",
+  "name": "libinterface",
+  "type": "STATIC_LIBRARY",
+  "fileSets": [],
+  "backtraceGraph": { "commands": [], "files": [], "nodes": [] },
+  "sources": [
+    { "path": "/some/source/libinterface.cpp" }
+  ],
+  "compileDependencies": []
 })===");
   auto loader = target_model::Target_model_loader::create();
   auto result = loader->load_directory(build_dir);
@@ -158,7 +172,8 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   const auto& libb = data->get(); // NOLINT(bugprone-unchecked-optional-access)
   CHECK(libb.interface_include_directories.empty());
   CHECK(libb.dependencies == std::unordered_set<target_model::Target>{{"liba"}});
-  CHECK(libb.interface_dependencies == std::unordered_set<target_model::Target>{{"liba"}});
+  CHECK(libb.interface_dependencies ==
+        std::unordered_set<target_model::Target>{{"liba"}, {"libinterface"}});
 }
 
 TEST_CASE("target_model: file_api_target_model_loader_impl fails for missing codemodel reply",

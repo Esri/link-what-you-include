@@ -47,8 +47,8 @@ struct Target_info
   std::unordered_set<std::filesystem::path> sources;
   std::unordered_set<std::filesystem::path> public_headers;
   std::vector<std::filesystem::path> include_dirs;
-  std::unordered_set<std::string> declared_deps;
-  std::map<std::string, std::string> dep_visibility;
+  std::unordered_set<std::string> dependencies;
+  std::unordered_set<std::string> interface_dependencies;
   std::map<std::string, Source_location> dep_locations;
 };
 
@@ -191,6 +191,77 @@ std::optional<Source_location> backtrace_location(const Backtrace_graph& graph, 
 
     current_index = *node.parent;
   }
+}
+
+std::expected<void, std::string> read_dependencies(
+  simdjson::ondemand::object& root,
+  std::string_view field_name,
+  std::unordered_set<std::string>& destination,
+  std::map<std::string, Source_location>& dep_locations,
+  const std::optional<Backtrace_graph>& backtrace_graph)
+{
+  simdjson::ondemand::value dependencies_field;
+  if (auto error = root.find_field_unordered(field_name).get(dependencies_field))
+  {
+    if (error == simdjson::NO_SUCH_FIELD) {
+      return {};
+    }
+    return std::unexpected(simdjson::error_message(error));
+  }
+
+  simdjson::ondemand::array dependencies;
+  if (auto error = dependencies_field.get_array().get(dependencies))
+  {
+    return std::unexpected(simdjson::error_message(error));
+  }
+
+  for (auto dep_value : dependencies)
+  {
+    simdjson::ondemand::object dep;
+    if (auto error = dep_value.get_object().get(dep))
+    {
+      return std::unexpected(simdjson::error_message(error));
+    }
+    std::string_view id;
+    if (auto error = dep.find_field_unordered("id").get(id))
+    {
+      return std::unexpected(simdjson::error_message(error));
+    }
+    if (id.empty())
+    {
+      continue;
+    }
+
+    const auto dep_id = std::string(id);
+    destination.insert(dep_id);
+
+    if (!backtrace_graph.has_value())
+    {
+      continue;
+    }
+
+    simdjson::ondemand::value backtrace_field;
+    if (auto error = dep.find_field_unordered("backtrace").get(backtrace_field);
+        error != simdjson::NO_SUCH_FIELD)
+    {
+      if (error)
+      {
+        return std::unexpected(simdjson::error_message(error));
+      }
+
+      uint64_t backtrace = 0U;
+      if (auto error = backtrace_field.get_uint64().get(backtrace))
+      {
+        return std::unexpected(simdjson::error_message(error));
+      }
+      if (auto location = backtrace_location(*backtrace_graph, backtrace); location.has_value())
+      {
+        dep_locations.try_emplace(dep_id, *location);
+      }
+    }
+  }
+
+  return {};
 }
 
 std::expected<void, std::string> read_json_file(File_loader& file_loader,
@@ -427,7 +498,6 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
                                pending_base_directories.end());
   }
 
-  std::unordered_set<std::string> interface_deps;
   std::optional<Backtrace_graph> backtrace_graph;
   simdjson::ondemand::value backtrace_graph_field;
   if (auto error = root.find_field_unordered("backtraceGraph").get(backtrace_graph_field);
@@ -452,103 +522,25 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
     backtrace_graph = std::move(parsed_backtrace_graph.value());
   }
 
+  if (auto result = read_dependencies(root,
+                                      "interfaceCompileDependencies",
+                                      target.interface_dependencies,
+                                      target.dep_locations,
+                                      backtrace_graph);
+      !result.has_value())
   {
-    simdjson::ondemand::value interface_compile_dependencies_field;
-    if (auto error = root.find_field_unordered("interfaceCompileDependencies").get(interface_compile_dependencies_field);
-        error != simdjson::NO_SUCH_FIELD)
-    {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array interface_compile_dependencies;
-      if (auto error = interface_compile_dependencies_field.get_array().get(interface_compile_dependencies))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      for (auto dep_value : interface_compile_dependencies)
-      {
-        simdjson::ondemand::object dep;
-        if (auto error = dep_value.get_object().get(dep))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view id;
-        if (auto error = dep.find_field_unordered("id").get(id))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        if (!id.empty())
-        {
-          interface_deps.insert(std::string(id));
-        }
-      }
-    }
+    return std::unexpected(result.error());
+  }
+  if (auto result = read_dependencies(root,
+                                      "compileDependencies",
+                                      target.dependencies,
+                                      target.dep_locations,
+                                      backtrace_graph);
+      !result.has_value())
+  {
+    return std::unexpected(result.error());
   }
 
-  {
-    simdjson::ondemand::value compile_dependencies_field;
-    if (auto error = root.find_field_unordered("compileDependencies").get(compile_dependencies_field);
-        error != simdjson::NO_SUCH_FIELD)
-    {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array compile_dependencies;
-      if (auto error = compile_dependencies_field.get_array().get(compile_dependencies))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      for (auto dep_value : compile_dependencies)
-      {
-        simdjson::ondemand::object dep;
-        if (auto error = dep_value.get_object().get(dep))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view id;
-        if (auto error = dep.find_field_unordered("id").get(id))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        if (id.empty())
-        {
-          continue;
-        }
-        const auto dep_id = std::string(id);
-        target.declared_deps.insert(dep_id);
-        target.dep_visibility[dep_id] = interface_deps.contains(dep_id) ? "PUBLIC" : "PRIVATE";
-
-        if (backtrace_graph.has_value())
-        {
-          simdjson::ondemand::value backtrace_field;
-          if (auto error = dep.find_field_unordered("backtrace").get(backtrace_field);
-              error != simdjson::NO_SUCH_FIELD)
-          {
-            if (error)
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-
-            uint64_t backtrace = 0U;
-            if (auto error = backtrace_field.get_uint64().get(backtrace))
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-            if (auto location = backtrace_location(*backtrace_graph, backtrace); location.has_value())
-            {
-              target.dep_locations[dep_id] = *location;
-            }
-          }
-        }
-      }
-    }
-  }
   return target;
 }
 
@@ -772,24 +764,29 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
       auto candidate = source.is_relative() ? source_root / source : source;
       target_data.sources.insert(candidate.lexically_normal());
     }
-    for (const auto& dep_id : target_info->declared_deps)
+    for (const auto& dep_id : target_info->dependencies)
     {
       auto it = id_to_name.find(dep_id);
       if (it == id_to_name.end())
       {
         continue;
       }
+
       const auto dep_target = Target{it->second};
       target_data.dependencies.insert(dep_target);
-      auto visibility = target_info->dep_visibility.find(dep_id);
-      if (visibility != target_info->dep_visibility.end() && visibility->second == "PUBLIC")
+      target_data.dependency_locations.emplace(dep_target, it->second);
+    }
+    for (const auto& dep_id : target_info->interface_dependencies)
+    {
+      auto it = id_to_name.find(dep_id);
+      if (it == id_to_name.end())
       {
-        target_data.interface_dependencies.insert(dep_target);
+        continue;
       }
-      if (auto it = target_info->dep_locations.find(dep_id); it != target_info->dep_locations.end())
-      {
-        target_data.dependency_locations.emplace(dep_target, it->second);
-      }
+
+      const auto dep_target = Target{it->second};
+      target_data.interface_dependencies.insert(dep_target);
+      target_data.dependency_locations.emplace(dep_target, it->second);
     }
 
     target_to_target_data.emplace_back(Target{target_info->name}, std::move(target_data));
