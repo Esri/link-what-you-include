@@ -105,7 +105,7 @@ $ ctest --test-dir build
 
 ### How to use with a cmake based build system
 
-CMake 4.2 or newer is required.
+CMake 4.3 or newer is required.
 
 The tool expects targets to define their public facing headers using
 [`File Sets`](https://cmake.org/cmake/help/latest/command/target_sources.html#file-sets)
