@@ -774,7 +774,11 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
 
       const auto dep_target = Target{it->second};
       target_data.dependencies.insert(dep_target);
-      target_data.dependency_locations.emplace(dep_target, it->second);
+      if (auto location_it = target_info->dep_locations.find(dep_id);
+          location_it != target_info->dep_locations.end())
+      {
+        target_data.dependency_locations.emplace(dep_target, location_it->second);
+      }
     }
     for (const auto& dep_id : target_info->interface_dependencies)
     {
@@ -786,7 +790,11 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
 
       const auto dep_target = Target{it->second};
       target_data.interface_dependencies.insert(dep_target);
-      target_data.dependency_locations.emplace(dep_target, it->second);
+      if (auto location_it = target_info->dep_locations.find(dep_id);
+          location_it != target_info->dep_locations.end())
+      {
+        target_data.dependency_locations.emplace(dep_target, location_it->second);
+      }
     }
 
     target_to_target_data.emplace_back(Target{target_info->name}, std::move(target_data));

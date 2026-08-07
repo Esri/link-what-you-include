@@ -176,6 +176,84 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
         std::unordered_set<target_model::Target>{{"liba"}, {"libinterface"}});
 }
 
+TEST_CASE("target_model: file_api_target_model_loader_impl get dependency backtrace",
+          "[target_model]")
+{
+  Temp_directory temp_directory{"lwyi-file-api-test-dependency-backtrace"};
+  const auto& build_dir = temp_directory.path();
+
+  temp_directory.write(".cmake/api/v1/reply/codemodel-v2-123.json",
+                       R"===({
+  "version": { "major": 2, "minor": 10 },
+  "paths": { "source": "/some/source" },
+  "configurations": [
+    {
+      "targets": [
+        { "id": "liba::@1", "name": "liba", "jsonFile": "target-liba.json" },
+        { "id": "libb::@1", "name": "libb", "jsonFile": "target-libb.json" }
+      ]
+    }
+  ]
+})===");
+  temp_directory.write(".cmake/api/v1/reply/target-liba.json",
+                       R"===({
+  "id": "liba::@1",
+  "name": "liba",
+  "type": "STATIC_LIBRARY",
+  "fileSets": [],
+  "backtraceGraph": { "commands": [], "files": [], "nodes": [] },
+  "sources": [
+    { "path": "/some/source/liba.cpp" }
+  ],
+  "compileDependencies": []
+})===");
+  temp_directory.write(".cmake/api/v1/reply/target-libb.json",
+                       R"===({
+  "id": "libb::@1",
+  "name": "libb",
+  "type": "STATIC_LIBRARY",
+  "fileSets": [],
+  "backtraceGraph": {
+    "commands": ["target_link_libraries"],
+    "files": ["lib/CMakeLists.txt"],
+    "nodes": [
+      { "file": 0 },
+      { "command": 0, "file": 0, "line": 21, "parent": 0 }
+    ]
+  },
+  "sources": [
+    { "path": "/some/source/libb.cpp" }
+  ],
+  "compileDependencies": [
+    { "id": "liba::@1", "backtrace": 1 }
+  ],
+  "dependencies": [
+    { "id": "liba::@1", "backtrace": 1 }
+  ]
+})===");
+
+  auto loader = target_model::Target_model_loader::create();
+  auto result = loader->load_directory(build_dir);
+  if (!result.has_value())
+  {
+    FAIL(result.error());
+  }
+
+  auto target_model = loader->make_target_model();
+  auto data = target_model.get_target_data(target_model::Target{"libb"});
+  if (!data)
+  {
+    FAIL("Target data not found for libb");
+  }
+  REQUIRE(data.has_value());
+
+  const auto& libb = data->get(); // NOLINT(bugprone-unchecked-optional-access)
+  auto location = libb.dependency_locations.find(target_model::Target{"liba"});
+  REQUIRE(location != libb.dependency_locations.end());
+  CHECK(location->second.file == std::filesystem::path{"lib/CMakeLists.txt"});
+  CHECK(location->second.line == 21);
+}
+
 TEST_CASE("target_model: file_api_target_model_loader_impl fails for missing codemodel reply",
           "[target_model]")
 {
