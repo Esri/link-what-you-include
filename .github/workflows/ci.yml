@@ -136,13 +136,15 @@ jobs:
           ctest_update()
           ctest_configure()
           ctest_build(RETURN_VALUE result NUMBER_ERRORS errors NUMBER_WARNINGS warnings)
-          if(result EQUAL 0)
-            ctest_test()
+          if(NOT result EQUAL 0)
+            ctest_submit()
+            message(FATAL_ERROR "ctest_build failed with ${errors} errors and ${warnings} warnings")
           endif()
+          ctest_test(RETURN_VALUE result)
           ctest_submit()
 
           if((NOT result EQUAL 0) OR (errors GREATER 0) OR (warnings GREATER 0))
-            message(FATAL_ERROR "Build failed with ${errors} errors and ${warnings} warnings")
+            message(FATAL_ERROR "ctest_test returned ${result} for build with ${errors} errors ${warnings} warnings")
           endif()
 
   tidy:
