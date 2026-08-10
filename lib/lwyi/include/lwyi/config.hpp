@@ -15,6 +15,7 @@ namespace lwyi
 struct Target_config
 {
   bool skip_validation{false};
+  bool interface_skip_validation{false};
   std::set<std::string> interface_include_prefixes;
 };
 

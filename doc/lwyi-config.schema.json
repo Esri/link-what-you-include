@@ -19,7 +19,11 @@
       "properties": {
         "skip_validation": {
           "type": "boolean",
-          "description": "If true, lwyi will skip validation for this target."
+          "description": "If true, lwyi will skip validation of this target."
+        },
+        "interface_skip_validation": {
+          "type": "boolean",
+          "description": "If true, lwyi will skip validation of usages of this target."
         },
         "interface_include_prefixes": {
           "type": "array",

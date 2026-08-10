@@ -19,10 +19,12 @@ TEST_CASE("lwyi: load_config loads target overrides", "[lwyi]")
       "targets": {
         "liba": {
           "skip_validation": true,
+          "interface_skip_validation": true,
           "interface_include_prefixes": ["foo", "bar"]
         },
         "libb": {
           "skip_validation": false,
+          "interface_skip_validation": false,
           "interface_include_prefixes": []
         }
       }
@@ -36,10 +38,12 @@ TEST_CASE("lwyi: load_config loads target overrides", "[lwyi]")
 
   const auto& a_config = config.get_target_config(target_model::Target{"liba"});
   CHECK(a_config.skip_validation);
+  CHECK(a_config.interface_skip_validation);
   CHECK(a_config.interface_include_prefixes == std::set<std::string>{"bar", "foo"});
 
   const auto& b_config = config.get_target_config(target_model::Target{"libb"});
   CHECK(!b_config.skip_validation);
+  CHECK(!b_config.interface_skip_validation);
   CHECK(b_config.interface_include_prefixes.empty());
 }
 

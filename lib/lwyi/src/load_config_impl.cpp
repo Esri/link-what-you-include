@@ -79,6 +79,18 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
       target_config.skip_validation = skip_validation;
     }
 
+    simdjson::ondemand::value interface_skip_validation_value;
+    if (!target_object.find_field_unordered("interface_skip_validation").get(interface_skip_validation_value))
+    {
+      bool interface_skip_validation = false;
+      if (auto error = interface_skip_validation_value.get_bool().get(interface_skip_validation))
+      {
+        return std::unexpected(std::format(
+          "target '{}'.interface_skip_validation: {}", target_name, simdjson::error_message(error)));
+      }
+      target_config.interface_skip_validation = interface_skip_validation;
+    }
+
     simdjson::ondemand::value prefixes_value;
     if (!target_object.find_field_unordered("interface_include_prefixes").get(prefixes_value))
     {
