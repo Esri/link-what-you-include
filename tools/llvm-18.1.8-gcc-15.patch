@@ -1,0 +1,33 @@
+diff -urN src.original/llvm/include/llvm/ADT/SmallVector.h src/llvm/include/llvm/ADT/SmallVector.h
+--- src.original/llvm/include/llvm/ADT/SmallVector.h	2024-06-15 10:21:32.000000000 -0700
++++ src/llvm/include/llvm/ADT/SmallVector.h	2026-08-11 00:14:03.566653428 -0700
+@@ -29,6 +29,7 @@
+ #include <new>
+ #include <type_traits>
+ #include <utility>
++#include <cstdint>
+ 
+ namespace llvm {
+ 
+diff -urN src.original/llvm/lib/Target/AMDGPU/MCTargetDesc/AMDGPUMCTargetDesc.h src/llvm/lib/Target/AMDGPU/MCTargetDesc/AMDGPUMCTargetDesc.h
+--- src.original/llvm/lib/Target/AMDGPU/MCTargetDesc/AMDGPUMCTargetDesc.h	2024-06-15 10:21:32.000000000 -0700
++++ src/llvm/lib/Target/AMDGPU/MCTargetDesc/AMDGPUMCTargetDesc.h	2026-08-11 12:21:31.541405190 -0700
+@@ -16,6 +16,7 @@
+ #define LLVM_LIB_TARGET_AMDGPU_MCTARGETDESC_AMDGPUMCTARGETDESC_H
+ 
+ #include <memory>
++#include <cstdint>
+ 
+ namespace llvm {
+ class Target;
+diff -urN src.original/llvm/lib/Target/X86/MCTargetDesc/X86MCTargetDesc.h src/llvm/lib/Target/X86/MCTargetDesc/X86MCTargetDesc.h
+--- src.original/llvm/lib/Target/X86/MCTargetDesc/X86MCTargetDesc.h	2024-06-15 10:21:32.000000000 -0700
++++ src/llvm/lib/Target/X86/MCTargetDesc/X86MCTargetDesc.h	2026-08-11 12:39:59.815251044 -0700
+@@ -15,6 +15,7 @@
+ 
+ #include <memory>
+ #include <string>
++#include <cstdint>
+ 
+ namespace llvm {
+ class formatted_raw_ostream;
