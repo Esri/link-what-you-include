@@ -7,9 +7,10 @@
 #include <target_model/target_data.hpp>
 #include <util/utils.hpp>
 
-#include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <filesystem>
+#include <flat_map>
 #include <format>
 #include <functional>
 #include <iterator>
@@ -23,110 +24,51 @@
 
 namespace target_model
 {
-namespace
+Target_model::Target_model(std::map<Target, Target_data> target_to_target_data)
+: target_to_target_data_(std::sorted_unique, // NOLINT(misc-include-cleaner) false error
+                         std::make_move_iterator(target_to_target_data.begin()),
+                         std::make_move_iterator(target_to_target_data.end()))
 {
-struct Less
-{
-  using Element = std::pair<Target, Target_data>;
-
-  bool operator()(const std::pair<Target, Target_data>& lhs,
-                  const std::pair<Target, Target_data>& rhs)
+  std::vector<std::filesystem::path> headers;
+  std::vector<size_t> indices;
+  for (size_t i = 0, iend = target_to_target_data_.keys().size(); i < iend; ++i)
   {
-    return lhs.first < rhs.first;
-  }
-
-  bool operator()(const Target& lhs, const std::pair<Target, Target_data>& rhs)
-  {
-    return lhs < rhs.first;
-  }
-
-  bool operator()(const std::pair<Target, Target_data>& lhs, const Target& rhs)
-  {
-    return lhs.first < rhs;
-  }
-
-  bool operator()(const Target& lhs, const Target& rhs)
-  {
-    return lhs < rhs;
-  }
-
-  bool operator()(const std::pair<std::filesystem::path, const Element*>& lhs,
-                  const std::pair<std::filesystem::path, const Element*>& rhs)
-  {
-    return lhs.first < rhs.first;
-  }
-
-  bool operator()(const std::filesystem::path& header,
-                  const std::pair<std::filesystem::path, const Element*>& pair)
-  {
-    return header < pair.first;
-  }
-
-  bool operator()(const std::pair<std::filesystem::path, const Element*>& pair,
-                  const std::filesystem::path& header)
-  {
-    return pair.first < header;
-  }
-};
-
-struct Comp
-{
-  bool operator()(const std::pair<Target, Target_data>& lhs,
-                  const std::pair<Target, Target_data>& rhs)
-  {
-    return lhs.first == rhs.first;
-  }
-};
-} // namespace
-
-Target_model::Target_model(std::vector<std::pair<Target, Target_data>> target_to_target_data)
-: target_to_target_data_(std::move(target_to_target_data))
-{
-  std::ranges::sort(target_to_target_data_, Less{});
-
-  for (const Element& element : target_to_target_data_)
-  {
-    const Target_data& target_data = element.second;
+    const Target_data& target_data = target_to_target_data_.values()[i];
     for (const auto& header : target_data.interface_headers)
     {
-      header_to_target_[header] = &element;
+      headers.push_back(header);
+      indices.push_back(i);
     }
     for (const auto& directory : target_data.interface_include_directories)
     {
-      directory_to_target_.emplace_back(directory, &element);
+      directory_to_index_.emplace_back(directory, i);
     }
   }
+  header_to_index_ = std::flat_map<std::filesystem::path, size_t>(std::move(headers),
+                                                                  std::move(indices));
 }
 
 std::string Target_model::validate() const
 {
-  // look for duplicate targets
-  if (auto it = std::ranges::adjacent_find(target_to_target_data_, Comp{});
-      it != target_to_target_data_.end())
-  {
-    return std::format("Target {} is repeated.\n", it->first.name);
-  }
-
   // check directory_to_target
   // - a directory of one target, cannot be a subdirectory of another.
 
-  for (const auto& pair : directory_to_target_)
+  for (const auto& [directory, index] : directory_to_index_)
   {
-    const auto& directory = pair.first;
-    const auto& target = pair.second->first;
+    const auto& target = target_to_target_data_.keys()[index];
 
-    for (const auto& other_pair : directory_to_target_)
+    for (const auto& [other_directory, other_index] : directory_to_index_)
     {
-      const auto& other_target = other_pair.second->first;
+      const auto& other_target = target_to_target_data_.keys()[other_index];
       if (target == other_target)
       {
         continue;
       }
-      const auto& other_directory = other_pair.first;
+
       if (util::is_in_directory(directory, other_directory))
       {
-        const auto& target_data = pair.second->second;
-        const auto& other_target_data = other_pair.second->second;
+        const auto& target_data = target_to_target_data_.values()[index];
+        const auto& other_target_data = target_to_target_data_.values()[other_index];
 
         if (target_data.interface_include_prefixes.empty())
         {
@@ -144,7 +86,7 @@ std::string Target_model::validate() const
               it != other_target_data.interface_include_prefixes.end())
           {
             return std::format(
-              "{} and {} have conflicting include directories and share {} as an include prefix.\n",
+              "{} and {} have a conflicting include directory and share {} as an include prefix.\n",
               target.name,
               other_target.name,
               prefix);
@@ -160,8 +102,7 @@ std::string Target_model::validate() const
 std::optional<std::reference_wrapper<const Target_data>> Target_model::get_target_data(
   const Target& target) const
 {
-  if (auto it = std::ranges::lower_bound(target_to_target_data_, target, Less{});
-      it != target_to_target_data_.end() && it->first == target)
+  if (auto it = target_to_target_data_.find(target); it != target_to_target_data_.end())
   {
     return std::ref(it->second);
   }
@@ -171,17 +112,15 @@ std::optional<std::reference_wrapper<const Target_data>> Target_model::get_targe
 
 std::optional<Target> Target_model::map_header_to_target(const std::filesystem::path& header) const
 {
-  if (auto it = header_to_target_.find(header);
-      it != std::end(header_to_target_) && it->first == header)
+  if (auto it = header_to_index_.find(header); it != std::end(header_to_index_))
   {
-    return {it->second->first};
+    return {target_to_target_data_.keys()[it->second]};
   }
 
-  for (const auto& pair : directory_to_target_)
+  for (const auto& [directory, index] : directory_to_index_)
   {
-    const auto& directory = pair.first;
-    const auto& target = pair.second->first;
-    const auto& target_data = pair.second->second;
+    const auto& target = target_to_target_data_.keys()[index];
+    const auto& target_data = target_to_target_data_.values()[index];
 
     if (target_data.interface_include_prefixes.empty())
     {
@@ -210,8 +149,7 @@ std::optional<Target> Target_model::map_header_to_target(const std::filesystem::
 void Target_model::set_interface_include_prefixes(const Target& target,
                                                   const std::set<std::string>& prefixes)
 {
-  if (auto it = std::ranges::lower_bound(target_to_target_data_, target, Less{});
-      it != target_to_target_data_.end() && it->first == target)
+  if (auto it = target_to_target_data_.find(target); it != target_to_target_data_.end())
   {
     it->second.interface_include_prefixes = {prefixes.begin(), prefixes.end()};
   }
@@ -220,7 +158,7 @@ void Target_model::set_interface_include_prefixes(const Target& target,
 void Target_model::for_each_target(
   const std::function<void(const Target&, const Target_data&)>& visitor) const
 {
-  for (auto& [target, data] : target_to_target_data_)
+  for (const auto& [target, data] : target_to_target_data_)
   {
     visitor(target, data);
   }
@@ -228,7 +166,7 @@ void Target_model::for_each_target(
 
 Target_model Target_model::create_pruned(const std::vector<Target>& targets) const
 {
-  std::map<Target, Target_data> pruned_target_to_target_map;
+  std::map<Target, Target_data> pruned_target_to_target_data;
 
   std::vector<Target> stack = targets;
   while (!stack.empty())
@@ -236,14 +174,14 @@ Target_model Target_model::create_pruned(const std::vector<Target>& targets) con
     auto target = stack.back();
     stack.pop_back();
 
-    if (0 < pruned_target_to_target_map.count(target))
+    if (0 < pruned_target_to_target_data.count(target))
     {
       continue;
     }
 
     if (auto target_data = get_target_data(target))
     {
-      pruned_target_to_target_map.emplace(target, *target_data);
+      pruned_target_to_target_data.emplace(target, *target_data);
       for (const auto& dep : target_data->get().dependencies)
       {
         stack.push_back(dep);
@@ -251,14 +189,7 @@ Target_model Target_model::create_pruned(const std::vector<Target>& targets) con
     }
   }
 
-  std::vector<std::pair<Target, Target_data>> pruned_target_to_target_data;
-  pruned_target_to_target_data.reserve(pruned_target_to_target_map.size());
-  for (auto& [target, target_data] : pruned_target_to_target_map)
-  {
-    pruned_target_to_target_data.emplace_back(target, target_data);
-  }
-
-  return Target_model{pruned_target_to_target_data};
+  return Target_model{std::move(pruned_target_to_target_data)};
 }
 
 } // namespace target_model

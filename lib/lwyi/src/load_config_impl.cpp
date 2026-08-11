@@ -10,6 +10,7 @@
 
 #include <expected>
 #include <format>
+#include <map>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -25,7 +26,7 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
     return std::unexpected(std::format("root document: {}", simdjson::error_message(error)));
   }
 
-  Config config;
+  std::map<target_model::Target, Target_config> target_configs;
 
   simdjson::ondemand::object root;
   if (auto error = doc.get_object().get(root))
@@ -38,7 +39,7 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
   {
     if (error == simdjson::NO_SUCH_FIELD)
     {
-      return config;
+      return {};
     }
     return std::unexpected(std::format("field 'targets': {}", simdjson::error_message(error)));
   }
@@ -101,9 +102,9 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
       }
     }
 
-    config.targets.emplace(target_model::Target{std::string(target_name)}, std::move(target_config));
+    target_configs.emplace(target_model::Target{std::string(target_name)}, std::move(target_config));
   }
 
-  return config;
+  return Config{std::move(target_configs)};
 }
 } // namespace lwyi

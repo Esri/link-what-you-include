@@ -16,34 +16,31 @@
 TEST_CASE("lwyi: load_config loads target overrides", "[lwyi]")
 {
   const char* json = R"({
-  "targets": {
-    "liba": {
-      "skip_validation": true,
-      "interface_include_prefixes": ["foo", "bar"]
-    },
-    "libb": {
-      "skip_validation": false,
-      "interface_include_prefixes": []
-    }
-  }
-})";
+      "targets": {
+        "liba": {
+          "skip_validation": true,
+          "interface_include_prefixes": ["foo", "bar"]
+        },
+        "libb": {
+          "skip_validation": false,
+          "interface_include_prefixes": []
+        }
+      }
+    })";
   simdjson::padded_string raw_config(json, std::strlen(json));
 
   auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(result.has_value());
 
   const auto& config = result.value();
-  REQUIRE(config.targets.size() == 2);
 
-  const auto it_a = config.targets.find(target_model::Target{"liba"});
-  REQUIRE(it_a != config.targets.end());
-  CHECK(it_a->second.skip_validation);
-  CHECK(it_a->second.interface_include_prefixes == std::set<std::string>{"bar", "foo"});
+  const auto& a_config = config.get_target_config(target_model::Target{"liba"});
+  CHECK(a_config.skip_validation);
+  CHECK(a_config.interface_include_prefixes == std::set<std::string>{"bar", "foo"});
 
-  const auto it_b = config.targets.find(target_model::Target{"libb"});
-  REQUIRE(it_b != config.targets.end());
-  CHECK(!it_b->second.skip_validation);
-  CHECK(it_b->second.interface_include_prefixes.empty());
+  const auto& b_config = config.get_target_config(target_model::Target{"libb"});
+  CHECK(!b_config.skip_validation);
+  CHECK(b_config.interface_include_prefixes.empty());
 }
 
 TEST_CASE("lwyi: load_config succeeds when targets is absent", "[lwyi]")
@@ -53,36 +50,35 @@ TEST_CASE("lwyi: load_config succeeds when targets is absent", "[lwyi]")
 
   auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(result.has_value());
-  CHECK(result->targets.empty());
 }
 
 TEST_CASE("lwyi: load_config defaults missing target fields", "[lwyi]")
 {
   const char* json = R"({
-  "targets": {
-    "liba": {}
-  }
-})";
+      "targets": {
+        "liba": {}
+      }
+    })";
   simdjson::padded_string raw_config(json, std::strlen(json));
 
   auto result = lwyi::load_config_impl(raw_config);
   REQUIRE(result.has_value());
 
-  const auto it = result->targets.find(target_model::Target{"liba"});
-  REQUIRE(it != result->targets.end());
-  CHECK(!it->second.skip_validation);
-  CHECK(it->second.interface_include_prefixes.empty());
+  const auto& config = result.value();
+  const auto& a_config = config.get_target_config(target_model::Target{"liba"});
+  CHECK(!a_config.skip_validation);
+  CHECK(a_config.interface_include_prefixes.empty());
 }
 
 TEST_CASE("lwyi: load_config fails for invalid skip_validation type", "[lwyi]")
 {
   const char* json = R"({
-  "targets": {
-    "liba": {
-      "skip_validation": "true"
-    }
-  }
-})";
+      "targets": {
+        "liba": {
+          "skip_validation": "true"
+        }
+      }
+    })";
   simdjson::padded_string raw_config(json, std::strlen(json));
 
   auto result = lwyi::load_config_impl(raw_config);
@@ -93,12 +89,12 @@ TEST_CASE("lwyi: load_config fails for invalid skip_validation type", "[lwyi]")
 TEST_CASE("lwyi: load_config fails for invalid interface_include_prefixes type", "[lwyi]")
 {
   const char* json = R"({
-  "targets": {
-    "liba": {
-      "interface_include_prefixes": "foo"
-    }
-  }
-})";
+      "targets": {
+        "liba": {
+          "interface_include_prefixes": "foo"
+        }
+      }
+    })";
   simdjson::padded_string raw_config(json, std::strlen(json));
 
   auto result = lwyi::load_config_impl(raw_config);

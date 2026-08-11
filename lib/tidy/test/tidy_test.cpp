@@ -40,15 +40,15 @@ TEST_CASE("tidy: tidy", "[tidy]")
 
     auto make_target_model = [&]() -> target_model::Target_model
     {
-      std::vector<std::pair<target_model::Target, target_model::Target_data>>
-        target_to_target_data{{{"liba"}, liba_target_data},
-                              {{"libb"}, libb_target_data},
-                              {{"libc"}, libc_target_data},
-                              {{"libd"}, libd_target_data},
-                              {{"libe"}, libe_target_data},
-                              {{"libf"}, libf_target_data},
-                              {{"libg"}, libg_target_data}};
-      return target_model::Target_model{target_to_target_data};
+      std::map<target_model::Target, target_model::Target_data> target_to_target_data{
+        {{"liba"}, liba_target_data},
+        {{"libb"}, libb_target_data},
+        {{"libc"}, libc_target_data},
+        {{"libd"}, libd_target_data},
+        {{"libe"}, libe_target_data},
+        {{"libf"}, libf_target_data},
+        {{"libg"}, libg_target_data}};
+      return target_model::Target_model{std::move(target_to_target_data)};
     };
 
     WHEN("tidy is run")

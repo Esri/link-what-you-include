@@ -13,6 +13,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <map>
 #include <print>
 #include <ranges>
 #include <string_view>
@@ -92,7 +93,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
     libq_target_data.interface_dependencies = {{"liba"}, {"libc"}};
     libq_target_data.dependencies = {{"liba"}, {"libb"}};
 
-    std::vector<std::pair<target_model::Target, target_model::Target_data>> target_to_target_data{
+    std::map<target_model::Target, target_model::Target_data> target_to_target_data{
       {{"liba"}, liba_target_data},
       {{"libb"}, libb_target_data},
       {{"libc"}, libc_target_data},

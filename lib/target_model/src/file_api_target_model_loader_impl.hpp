@@ -12,10 +12,9 @@
 
 #include <expected>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
-#include <utility>
-#include <vector>
 
 namespace target_model
 {
@@ -31,6 +30,6 @@ public:
 private:
   std::unique_ptr<File_loader> file_loader_;
   simdjson::ondemand::parser parser_;
-  std::vector<std::pair<Target, Target_data>> target_to_target_data_;
+  std::map<Target, Target_data> target_to_target_data_;
 };
 } // namespace target_model

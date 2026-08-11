@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <initializer_list>
+#include <map>
 #include <set>
 #include <unordered_set>
 #include <utility>
@@ -35,7 +36,7 @@ TEST_CASE("lwyi: strongly_connected_dependencies", "[lwyi]")
   target_model::Target_data libd_target_data;
   libd_target_data.dependencies = {};
 
-  std::vector<std::pair<target_model::Target, target_model::Target_data>> target_to_target_data{
+  std::map<target_model::Target, target_model::Target_data> target_to_target_data{
     {{"a"}, liba_target_data},
     {{"b"}, libb_target_data},
     {{"c"}, libc_target_data},

@@ -5,11 +5,10 @@
 
 #include <target_model/target.hpp>
 
+#include <flat_map>
 #include <functional>
 #include <map>
-#include <optional>
 #include <set>
-#include <string_view>
 
 namespace lwyi
 {
@@ -19,13 +18,18 @@ struct Target_config
   std::set<std::string> interface_include_prefixes;
 };
 
-struct Config
+class Config
 {
-  std::map<target_model::Target, Target_config> targets;
+public:
+  Config();
+  explicit Config(std::map<target_model::Target, Target_config> target_configs);
 
-  [[nodiscard]] bool skip_validation(std::string_view target) const;
+  [[nodiscard]] const Target_config& get_target_config(const target_model::Target& target) const;
 
-  [[nodiscard]] std::optional<std::reference_wrapper<const std::set<std::string>>> interface_include_prefixes(
-    std::string_view target) const;
+  void for_each_non_default_target_config(
+    const std::function<void(const target_model::Target&, const Target_config&)>& visitor) const;
+
+private:
+  std::flat_map<target_model::Target, Target_config> target_configs_;
 };
 } // namespace lwyi

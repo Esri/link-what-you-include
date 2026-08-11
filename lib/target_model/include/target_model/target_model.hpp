@@ -7,12 +7,12 @@
 #include <target_model/target_data.hpp>
 
 #include <filesystem>
+#include <flat_map>
 #include <functional>
+#include <map>
 #include <optional>
 #include <set>
 #include <string>
-#include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace target_model
@@ -20,26 +20,26 @@ namespace target_model
 class Target_model
 {
 public:
-  explicit Target_model(std::vector<std::pair<Target, Target_data>> target_to_target_data);
+  explicit Target_model(std::map<Target, Target_data> target_to_target_data);
 
-  std::string validate() const;
+  [[nodiscard]] std::string validate() const;
 
-  std::optional<std::reference_wrapper<const Target_data>> get_target_data(
+  [[nodiscard]] std::optional<std::reference_wrapper<const Target_data>> get_target_data(
     const Target& target) const;
 
-  std::optional<Target> map_header_to_target(const std::filesystem::path& header) const;
+  [[nodiscard]] std::optional<Target> map_header_to_target(
+    const std::filesystem::path& header) const;
 
-  void set_interface_include_prefixes(
-      const Target& target, const std::set<std::string>& prefixes);
+  void set_interface_include_prefixes(const Target& target,
+                                      const std::set<std::string>& prefixes);
 
   void for_each_target(const std::function<void(const Target&, const Target_data&)>& visitor) const;
 
-  Target_model create_pruned(const std::vector<Target>& targets) const;
+  [[nodiscard]] Target_model create_pruned(const std::vector<Target>& targets) const;
 
 private:
-  using Element = std::pair<Target, Target_data>;
-  std::vector<Element> target_to_target_data_;
-  std::unordered_map<std::filesystem::path, const Element*> header_to_target_;
-  std::vector<std::pair<std::filesystem::path, const Element*>> directory_to_target_;
+  std::flat_map<Target, Target_data> target_to_target_data_;
+  std::flat_map<std::filesystem::path, size_t> header_to_index_;
+  std::vector<std::pair<std::filesystem::path, size_t>> directory_to_index_;
 };
 } // namespace target_model

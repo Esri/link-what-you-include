@@ -32,6 +32,7 @@ if(BUILD_TESTING)
   target_sources(lib_lwyi_test
     PRIVATE
       test/check_target_test.cpp
+      test/config_test.cpp
       test/dependency_visibility_test.cpp
       test/load_config_test.cpp
       test/strongly_connected_dependencies_test.cpp

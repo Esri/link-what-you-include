@@ -5,33 +5,40 @@
 
 #include <target_model/target.hpp>
 
+#include <flat_map>
 #include <functional>
+#include <iterator>
 #include <map>
-#include <optional>
-#include <set>
-#include <string>
-#include <string_view>
+#include <utility>
 
 namespace lwyi
 {
-  [[nodiscard]] bool Config::skip_validation(std::string_view target) const
-  {
-    if (auto it = targets.find(target_model::Target{std::string(target)}); it != targets.end())
-    {
-      return it->second.skip_validation;
-    }
+Config::Config() = default;
 
-    return false;
+Config::Config(std::map<target_model::Target, Target_config> target_configs)
+: target_configs_(std::sorted_unique, // NOLINT(misc-include-cleaner) false error
+                  std::make_move_iterator(target_configs.begin()),
+                  std::make_move_iterator(target_configs.end()))
+{
+}
+
+const Target_config& Config::get_target_config(const target_model::Target& target) const
+{
+  if (const auto it = target_configs_.find(target); it != target_configs_.end())
+  {
+    return it->second;
   }
 
-  [[nodiscard]] std::optional<std::reference_wrapper<const std::set<std::string>>>
-    Config::interface_include_prefixes(std::string_view target) const
-  {
-    if (auto it = targets.find(target_model::Target{std::string(target)}); it != targets.end())
-    {
-      return std::cref(it->second.interface_include_prefixes);
-    }
+  static Target_config default_target_config;
+  return default_target_config;
+}
 
-    return std::nullopt;
+void Config::for_each_non_default_target_config(
+  const std::function<void(const target_model::Target&, const Target_config&)>& visitor) const
+{
+  for (const auto& pair : target_configs_)
+  {
+    visitor(pair.first, pair.second);
   }
+}
 } // namespace lwyi
