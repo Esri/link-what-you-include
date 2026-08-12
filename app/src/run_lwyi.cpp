@@ -17,8 +17,10 @@
 #include <filesystem>
 #include <format>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -44,14 +46,6 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     }
   }
 
-  message::heading("Build System");
-  auto loader = target_model::Target_model_loader::create();
-  message::info("Loading metadata from CMake File API in {}", binary_dir.string());
-  const auto load_result = loader->load_directory(binary_dir);
-  if (!load_result.has_value())
-  {
-    return std::unexpected(load_result.error());
-  }
   const auto config_path = options.config_file.empty() ? (binary_dir / "lwyi-config.json")
                                                        : std::filesystem::path(options.config_file);
   if (!options.config_file.empty() && !std::filesystem::is_regular_file(config_path))
@@ -59,6 +53,8 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     return std::unexpected(
       std::format("error: config file not found: {}", config_path.string()));
   }
+
+  message::heading("Build System");
 
   lwyi::Config config;
   if (std::filesystem::is_regular_file(config_path))
@@ -72,13 +68,23 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     config = std::move(*loaded_config);
   }
 
-  auto target_model = loader->make_target_model();
+  auto loader = target_model::Target_model_loader::create();
+  message::info("Loading metadata from CMake File API in {}", binary_dir.string());
+  const auto load_result = loader->load_directory(binary_dir);
+  if (!load_result.has_value())
+  {
+    return std::unexpected(load_result.error());
+  }
+
+  std::map<target_model::Target, std::set<std::string>> target_prefixes;
   config.for_each_non_default_target_config(
-    [&target_model](const target_model::Target& target, const lwyi::Target_config& target_config)
+    [&target_prefixes](const target_model::Target& target,
+                       const lwyi::Target_config& target_config)
     {
-      target_model.set_interface_include_prefixes(target,
-                                                  target_config.interface_include_prefixes);
+      target_prefixes[target] = target_config.interface_include_prefixes;
     });
+
+  auto target_model = loader->make_target_model(std::move(target_prefixes));
 
   std::vector<target_model::Target> selected_targets;
   selected_targets.reserve(options.targets.size());

@@ -25,7 +25,8 @@ public:
 
   std::expected<void, std::string> load_directory(const std::filesystem::path& path) override;
 
-  Target_model make_target_model() override;
+  Target_model make_target_model(
+    std::map<target_model::Target, std::set<std::string>> target_prefixes) override;
 
 private:
   std::unique_ptr<File_loader> file_loader_;

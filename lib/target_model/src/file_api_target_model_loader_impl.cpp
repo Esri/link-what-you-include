@@ -835,8 +835,16 @@ std::expected<void, std::string> File_api_target_model_loader_impl::load_directo
   return {};
 }
 
-Target_model File_api_target_model_loader_impl::make_target_model()
+Target_model File_api_target_model_loader_impl::make_target_model(
+  std::map<target_model::Target, std::set<std::string>> target_prefixes)
 {
+  for (auto & [target, prefixes] : target_prefixes)
+  {
+    if (auto it = target_to_target_data_.find(target); it != target_to_target_data_.end())
+    {
+      it->second.interface_include_prefixes.insert(prefixes.begin(), prefixes.end());
+    }
+  }
   return Target_model{std::exchange(target_to_target_data_, {})};
 }
 

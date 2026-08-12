@@ -146,7 +146,7 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
     FAIL(result.error());
   }
 
-  auto target_model = loader->make_target_model();
+  auto target_model = loader->make_target_model({});
 
   auto data = target_model.get_target_data(target_model::Target{"liba"});
   if (!data) {
@@ -239,7 +239,7 @@ TEST_CASE("target_model: file_api_target_model_loader_impl get dependency backtr
     FAIL(result.error());
   }
 
-  auto target_model = loader->make_target_model();
+  auto target_model = loader->make_target_model({});
   auto data = target_model.get_target_data(target_model::Target{"libb"});
   if (!data)
   {

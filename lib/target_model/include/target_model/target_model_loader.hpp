@@ -3,9 +3,13 @@
 
 #pragma once
 
+#include <target_model/target.hpp>
+
 #include <expected>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 
 namespace target_model
@@ -22,7 +26,8 @@ public:
   virtual std::expected<void, std::string> 
     load_directory(const std::filesystem::path& path) = 0;
 
-  virtual Target_model make_target_model() = 0;
+  virtual Target_model make_target_model(
+    std::map<target_model::Target, std::set<std::string>> target_prefixes) = 0;
 };
 
 } // namespace target_model

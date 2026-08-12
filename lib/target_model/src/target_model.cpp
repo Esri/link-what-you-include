@@ -146,15 +146,6 @@ std::optional<Target> Target_model::map_header_to_target(const std::filesystem::
   return {};
 }
 
-void Target_model::set_interface_include_prefixes(const Target& target,
-                                                  const std::set<std::string>& prefixes)
-{
-  if (auto it = target_to_target_data_.find(target); it != target_to_target_data_.end())
-  {
-    it->second.interface_include_prefixes = {prefixes.begin(), prefixes.end()};
-  }
-}
-
 void Target_model::for_each_target(
   const std::function<void(const Target&, const Target_data&)>& visitor) const
 {
