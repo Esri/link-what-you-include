@@ -10,6 +10,7 @@
 #include <src/run_lwyi_on_target.hpp>
 #include <src/run_tool.hpp>
 #include <target_model/target.hpp>
+#include <target_model/target_data.hpp>
 #include <target_model/target_model.hpp>
 #include <target_model/target_model_loader.hpp>
 
@@ -26,11 +27,6 @@
 #include <thread>
 #include <utility>
 #include <vector>
-
-namespace target_model
-{
-struct Target_data;
-} // namespace target_model
 
 std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
 {
@@ -85,6 +81,10 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     });
 
   auto target_model = loader->make_target_model(std::move(target_prefixes));
+  if (const auto invalid_message = target_model.validate(); !invalid_message.empty())
+  {
+    return std::unexpected(invalid_message);
+  }
 
   std::vector<target_model::Target> selected_targets;
   selected_targets.reserve(options.targets.size());

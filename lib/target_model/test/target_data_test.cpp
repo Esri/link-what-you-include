@@ -5,7 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("target_model: free functions", "[target_model]")
+TEST_CASE("target_model: Target_data free functions", "[target_model]")
 {
   target_model::Target_data target_data;
   target_data.interface_headers = {"/liba/include/a.h", "/liba/include/b.h"};

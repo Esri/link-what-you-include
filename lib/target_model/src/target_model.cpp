@@ -50,53 +50,57 @@ Target_model::Target_model(std::map<Target, Target_data> target_to_target_data)
 
 std::string Target_model::validate() const
 {
-  // check directory_to_target
-  // - a directory of one target, cannot be a subdirectory of another.
-
-  for (const auto& [directory, index] : directory_to_index_)
+  // Check that the interface include diectories are disjoint when disambiguated with prefixes
+  std::string result;
+  size_t error_count = 0;
+  std::unordered_set<std::string> no_prefix_set{""};
+  const size_t directory_count = directory_to_index_.size();
+  for (size_t i = 0; i < directory_count; ++i)
   {
-    const auto& target = target_to_target_data_.keys()[index];
-
-    for (const auto& [other_directory, other_index] : directory_to_index_)
+    const auto& i_index = directory_to_index_[i].second;
+    const auto& i_target = target_to_target_data_.keys()[i_index];
+    const auto& i_target_data = target_to_target_data_.values()[i_index];
+    const auto& i_prefixes = i_target_data.interface_include_prefixes.empty()
+                               ? no_prefix_set
+                               : i_target_data.interface_include_prefixes;
+    for (const auto& i_prefix : i_prefixes)
     {
-      const auto& other_target = target_to_target_data_.keys()[other_index];
-      if (target == other_target)
+      const auto i_dir = directory_to_index_[i].first / i_prefix;
+      for (size_t j = i + 1; j < directory_count; ++j)
       {
-        continue;
-      }
+        const auto& j_index = directory_to_index_[j].second;
+        const auto& j_target = target_to_target_data_.keys()[j_index];
 
-      if (util::is_in_directory(directory, other_directory))
-      {
-        const auto& target_data = target_to_target_data_.values()[index];
-        const auto& other_target_data = target_to_target_data_.values()[other_index];
-
-        if (target_data.interface_include_prefixes.empty())
+        if (i_target.name == j_target.name)
         {
-          return std::format(
-            "{} and {} have a conflicting include directory ({}) and {} does not have an include prefix to disambiguate.\n",
-            target.name,
-            other_target.name,
-            directory.string(),
-            target.name);
+          continue;
         }
 
-        for (const auto& prefix : target_data.interface_include_prefixes)
+        const auto& j_target_data = target_to_target_data_.values()[j_index];
+        const auto& j_prefixes = j_target_data.interface_include_prefixes.empty()
+                                   ? no_prefix_set
+                                   : j_target_data.interface_include_prefixes;
+        for (const auto& j_prefix : j_prefixes)
         {
-          if (auto it = other_target_data.interface_include_prefixes.find(prefix);
-              it != other_target_data.interface_include_prefixes.end())
+          const auto j_dir = directory_to_index_[j].first / j_prefix;
+
+          if (util::is_in_directory(i_dir, j_dir) || util::is_in_directory(j_dir, i_dir))
           {
-            return std::format(
-              "{} and {} have a conflicting include directory and share {} as an include prefix.\n",
-              target.name,
-              other_target.name,
-              prefix);
+            result += std::format(
+              "{}An include directory of {} ({}) conflicts with an include directory of {} ({}).",
+              (0 < error_count) ? "\n" : "",
+              i_target.name,
+              i_dir.string(),
+              j_target.name,
+              j_dir.string());
+            ++error_count;
           }
         }
       }
     }
   }
 
-  return {};
+  return result;
 }
 
 std::optional<std::reference_wrapper<const Target_data>> Target_model::get_target_data(
@@ -119,14 +123,12 @@ std::optional<Target> Target_model::map_header_to_target(const std::filesystem::
 
   for (const auto& [directory, index] : directory_to_index_)
   {
-    const auto& target = target_to_target_data_.keys()[index];
     const auto& target_data = target_to_target_data_.values()[index];
-
     if (target_data.interface_include_prefixes.empty())
     {
       if (util::is_in_directory(directory, header))
       {
-        return target;
+        return target_to_target_data_.keys()[index];
       }
     }
     else
@@ -137,7 +139,7 @@ std::optional<Target> Target_model::map_header_to_target(const std::filesystem::
                                   std::filesystem::path{prefix};
         if (util::is_in_directory(prefixed_dir, header))
         {
-          return target;
+          return target_to_target_data_.keys()[index];
         }
       }
     }

@@ -61,4 +61,16 @@ TEST_CASE("util: is_in_directory", "[util]")
   CHECK(!util::is_in_directory("a/b/c", "/a/b/q/file.h"));
   CHECK(!util::is_in_directory("a/b/c", "/a/b/q/d/e/file.h"));
 #endif
+
+  // directory is in itself
+#if _WIN32
+  CHECK(util::is_in_directory("C:/a/b/c", "C:/a/b/c"));
+  CHECK(util::is_in_directory("C:/a/b/c/", "C:/a/b/c/"));
+#else
+  CHECK(util::is_in_directory("/a/b/c", "/a/b/c"));
+  CHECK(util::is_in_directory("/a/b/c/", "/a/b/c/"));
+#endif
+
+  CHECK(util::is_in_directory("a/b/c", "a/b/c"));
+  CHECK(util::is_in_directory("a/b/c/", "a/b/c/"));
 }

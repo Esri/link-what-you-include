@@ -30,6 +30,7 @@ if(BUILD_TESTING)
     PRIVATE
       test/file_api_target_model_loader_impl_test.cpp
       test/target_data_test.cpp
+      test/target_model_test.cpp
     )
   # allow access to private headers
   target_include_directories(lib_target_model_test
