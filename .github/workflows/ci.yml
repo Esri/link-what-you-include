@@ -96,20 +96,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Cache 3rdparty
-        id: cache-3rdparty
-        uses: actions/cache@v5
+      - name: Restore cached 3rdparty
+        id: cache-3rdparty-restore
+        uses: actions/cache/restore@v5
         with:
-          path: ./3rdparty
           key: 3rdparty_${{ matrix.os }}_${{ hashFiles('tools/build_*.sh') }}
+          path: ./3rdparty
 
       - name: Build 3rdparty
-        if: steps.cache-3rdparty.outputs.cache-hit != 'true'
+        if: steps.cache-3rdparty-restore.outputs.cache-hit != 'true'
         shell: bash
         run: |
           bash ./tools/build_catch2.sh
           bash ./tools/build_clangtooling.sh
           bash ./tools/build_simdjson.sh
+
+      - name: Cache 3rdparty
+        id: cache-3rdparty-save
+        if: always() && steps.cache-3rdparty-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          key: ${{ steps.cache-3rdparty-restore.outputs.cache-primary-key }}
+          path: ./3rdparty
 
       - name: Enable 3rdparty
         shell: bash
@@ -117,7 +125,7 @@ jobs:
           echo "CMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/3rdparty" >> $GITHUB_ENV
 
       - name: Build and test
-        shell: ctest -V -S {0}
+        shell: ctest -VV -S {0}
         run: |
           include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
 
@@ -163,7 +171,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Build with clang-tidy
-        shell: ctest -V -S {0}
+        shell: ctest -VV -S {0}
         run: |
           include($ENV{GITHUB_WORKSPACE}/.github/workflows/common_ctest.cmake)
 
