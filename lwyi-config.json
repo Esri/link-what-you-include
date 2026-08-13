@@ -4,6 +4,9 @@
      "interface_include_prefixes": [
        "catch2"
      ]
+   },
+   "clangTooling": {
+     "interface_skip_validation": true
    }
  }
 }
