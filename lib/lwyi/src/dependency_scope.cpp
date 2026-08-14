@@ -3,12 +3,10 @@
 
 #include <lwyi/dependency_scope.hpp>
 
-#include <type_traits>
+#include <utility>
 
 namespace lwyi
 {
-using Underlying = std::underlying_type_t<Dependency_scope>;
-
 bool operator!(Dependency_scope v)
 {
   return v == Dependency_scope::none;
@@ -17,14 +15,12 @@ bool operator!(Dependency_scope v)
 Dependency_scope& operator|=(Dependency_scope& lhs, Dependency_scope rhs)
 
 {
-  lhs = static_cast<Dependency_scope>(static_cast<Underlying>(lhs) |
-                                      static_cast<Underlying>(rhs));
+  lhs = static_cast<Dependency_scope>(std::to_underlying(lhs) | std::to_underlying(rhs));
   return lhs;
 }
 
 Dependency_scope operator&(Dependency_scope lhs, Dependency_scope rhs)
 {
-  return static_cast<Dependency_scope>(static_cast<Underlying>(lhs) &
-                                       static_cast<Underlying>(rhs));
+  return static_cast<Dependency_scope>(std::to_underlying(lhs) & std::to_underlying(rhs));
 }
 } // namespace lwyi
