@@ -3,7 +3,7 @@
 
 #include <lwyi/check_target.hpp>
 
-#include <lwyi/dependency_visibility.hpp>
+#include <lwyi/dependency_scope.hpp>
 #include <scanner/include.hpp>
 #include <scanner/scan.hpp>
 #include <target_model/target.hpp>
@@ -25,17 +25,17 @@ namespace
 {
 void dump(const std::vector<lwyi::LWYI_error>& errors)
 {
-  auto to_string = [](lwyi::Dependency_visibility visibility) -> std::string_view
+  auto to_string = [](lwyi::Dependency_scope scope) -> std::string_view
   {
-    switch (visibility)
+    switch (scope)
     {
-      case lwyi::Dependency_visibility::private_scope:
+      case lwyi::Dependency_scope::private_scope:
         return "PRIVATE";
-      case lwyi::Dependency_visibility::interface_scope:
+      case lwyi::Dependency_scope::interface_scope:
         return "INTERFACE";
-      case lwyi::Dependency_visibility::public_scope:
+      case lwyi::Dependency_scope::public_scope:
         return "PUBLIC";
-      case lwyi::Dependency_visibility::none:
+      case lwyi::Dependency_scope::none:
         break;
     }
 
@@ -44,9 +44,9 @@ void dump(const std::vector<lwyi::LWYI_error>& errors)
 
   for (const auto& error : errors)
   {
-    std::print("target:             {}\n", error.target.name);
-    std::print("linked_visiblity:   {}\n", to_string(error.linked_visibility));
-    std::print("included_visiblity: {}\n", to_string(error.included_visibility));
+    std::print("target:         {}\n", error.target.name);
+    std::print("linked_scope:   {}\n", to_string(error.linked_scope));
+    std::print("included_scope: {}\n", to_string(error.included_scope));
 
     for (const auto& include : error.sample_includes)
     {
@@ -143,8 +143,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::public_scope);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::private_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::public_scope);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
         }
       }
     }
@@ -164,8 +164,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::public_scope);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::interface_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::public_scope);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
         }
       }
     }
@@ -186,8 +186,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::private_scope);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::public_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::private_scope);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
         }
       }
     }
@@ -208,8 +208,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::private_scope);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::interface_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::private_scope);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
         }
       }
     }
@@ -231,8 +231,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::interface_scope);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::public_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::interface_scope);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
         }
       }
     }
@@ -253,8 +253,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::interface_scope);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::private_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::interface_scope);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
         }
       }
     }
@@ -276,8 +276,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::none);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::private_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::none);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
         }
       }
     }
@@ -298,8 +298,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::none);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::interface_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::none);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
         }
       }
     }
@@ -322,8 +322,8 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
-          CHECK(errors[0].linked_visibility == lwyi::Dependency_visibility::none);
-          CHECK(errors[0].included_visibility == lwyi::Dependency_visibility::public_scope);
+          CHECK(errors[0].linked_scope == lwyi::Dependency_scope::none);
+          CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
         }
       }
     }

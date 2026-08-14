@@ -4,7 +4,7 @@
 #include <src/run_lwyi_on_target.hpp>
 
 #include <lwyi/check_target.hpp>
-#include <lwyi/dependency_visibility.hpp>
+#include <lwyi/dependency_scope.hpp>
 #include <message/message.hpp>
 #include <scanner/include.hpp>
 #include <scanner/scan.hpp>
@@ -22,42 +22,39 @@
 
 namespace
 {
-std::string_view visibility_to_string(lwyi::Dependency_visibility visibility)
+std::string_view scope_to_string(lwyi::Dependency_scope scope)
 {
-  switch (visibility)
+  switch (scope)
   {
-    case lwyi::Dependency_visibility::none:
+    case lwyi::Dependency_scope::none:
       return "none";
-    case lwyi::Dependency_visibility::private_scope:
+    case lwyi::Dependency_scope::private_scope:
       return "PRIVATE";
-    case lwyi::Dependency_visibility::interface_scope:
+    case lwyi::Dependency_scope::interface_scope:
       return "INTERFACE";
-    case lwyi::Dependency_visibility::public_scope:
+    case lwyi::Dependency_scope::public_scope:
       return "PUBLIC";
   }
 
   std::unreachable();
 }
 
-std::string describe_linked_visibility(lwyi::Dependency_visibility visibility,
-                                       std::string_view target_name)
+std::string describe_linked_scope(lwyi::Dependency_scope scope, std::string_view target_name)
 {
-  if (visibility == lwyi::Dependency_visibility::none)
+  if (scope == lwyi::Dependency_scope::none)
   {
     return std::format("does not link to {}", target_name);
   }
-  return std::format("links to {} with {} scope",
-                     target_name,
-                     visibility_to_string(visibility));
+  return std::format("links to {} with {} scope", target_name, scope_to_string(scope));
 }
 
-std::string describe_included_visibility(lwyi::Dependency_visibility visibility)
+std::string describe_included_scope(lwyi::Dependency_scope scope)
 {
-  if (visibility == lwyi::Dependency_visibility::none)
+  if (scope == lwyi::Dependency_scope::none)
   {
     return "not included";
   }
-  return std::format("included with {} scope", visibility_to_string(visibility));
+  return std::format("included with {} scope", scope_to_string(scope));
 }
 } // namespace
 
@@ -91,10 +88,10 @@ bool run_lwyi_on_target(const target_model::Target_model& target_model,
                               errors.end(),
                               [](const lwyi::LWYI_error& error)
                               {
-                                return error.linked_visibility ==
-                                         lwyi::Dependency_visibility::public_scope &&
-                                       error.included_visibility ==
-                                         lwyi::Dependency_visibility::interface_scope;
+                                return error.linked_scope ==
+                                         lwyi::Dependency_scope::public_scope &&
+                                       error.included_scope ==
+                                         lwyi::Dependency_scope::interface_scope;
                               }),
                errors.end());
 #endif
@@ -111,8 +108,8 @@ bool run_lwyi_on_target(const target_model::Target_model& target_model,
   {
     message::error("{} {} but it is {}.",
                    target.name,
-                   describe_linked_visibility(error.linked_visibility, error.target.name),
-                   describe_included_visibility(error.included_visibility));
+                   describe_linked_scope(error.linked_scope, error.target.name),
+                   describe_included_scope(error.included_scope));
 
     if (error.linked_location.has_value())
     {

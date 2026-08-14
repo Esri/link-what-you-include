@@ -7,7 +7,7 @@
 
 namespace lwyi
 {
-enum class Dependency_visibility : uint8_t
+enum class Dependency_scope : uint8_t
 {
   none = 0x00,
   private_scope = 0x01,
@@ -15,7 +15,7 @@ enum class Dependency_visibility : uint8_t
   public_scope = 0x11
 };
 
-bool operator!(Dependency_visibility v);
-Dependency_visibility& operator|=(Dependency_visibility& lhs, Dependency_visibility rhs);
-Dependency_visibility operator&(Dependency_visibility lhs, Dependency_visibility rhs);
+bool operator!(Dependency_scope v);
+Dependency_scope& operator|=(Dependency_scope& lhs, Dependency_scope rhs);
+Dependency_scope operator&(Dependency_scope lhs, Dependency_scope rhs);
 } // namespace lwyi

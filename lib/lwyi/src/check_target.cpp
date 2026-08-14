@@ -3,7 +3,7 @@
 
 #include <lwyi/check_target.hpp>
 
-#include <lwyi/dependency_visibility.hpp>
+#include <lwyi/dependency_scope.hpp>
 #include <scanner/include.hpp>
 #include <scanner/scan.hpp>
 #include <target_model/target.hpp>
@@ -40,8 +40,8 @@ std::map<target_model::Target, std::vector<scanner::Include>> collect_include_de
 
 struct Visibility
 {
-  Dependency_visibility linked_visibility{Dependency_visibility::none};
-  Dependency_visibility included_visibility{Dependency_visibility::none};
+  Dependency_scope linked_scope{Dependency_scope::none};
+  Dependency_scope included_scope{Dependency_scope::none};
 };
 } // namespace
 
@@ -57,14 +57,14 @@ std::vector<LWYI_error> check_target(const target_model::Target_model& target_mo
   {
     if (target_model.get_target_data(dep).has_value())
     {
-      visibility_map[dep].linked_visibility |= Dependency_visibility::interface_scope;
+      visibility_map[dep].linked_scope |= Dependency_scope::interface_scope;
     }
   }
   for (const auto& dep : target_data.dependencies)
   {
     if (target_model.get_target_data(dep).has_value())
     {
-      visibility_map[dep].linked_visibility |= Dependency_visibility::private_scope;
+      visibility_map[dep].linked_scope |= Dependency_scope::private_scope;
     }
   }
 
@@ -78,18 +78,18 @@ std::vector<LWYI_error> check_target(const target_model::Target_model& target_mo
   for (const auto& pair : included_interface_deps_map)
   {
     const auto& dep = pair.first;
-    visibility_map[dep].included_visibility |= Dependency_visibility::interface_scope;
+    visibility_map[dep].included_scope |= Dependency_scope::interface_scope;
   }
   for (const auto& pair : included_deps_map)
   {
     const auto& dep = pair.first;
-    visibility_map[dep].included_visibility |= Dependency_visibility::private_scope;
+    visibility_map[dep].included_scope |= Dependency_scope::private_scope;
   }
 
   std::vector<LWYI_error> errors;
   for (const auto& [dep, visibility] : visibility_map)
   {
-    if (visibility.linked_visibility == visibility.included_visibility)
+    if (visibility.linked_scope == visibility.included_scope)
     {
       continue;
     }
@@ -101,17 +101,17 @@ std::vector<LWYI_error> check_target(const target_model::Target_model& target_mo
     }
 
     LWYI_error error{dep,
-                     visibility.linked_visibility,
-                     visibility.included_visibility,
+                     visibility.linked_scope,
+                     visibility.included_scope,
                      std::move(linked_location),
                      {}};
-    if (!!(visibility.included_visibility & Dependency_visibility::interface_scope))
+    if (!!(visibility.included_scope & Dependency_scope::interface_scope))
     {
       auto it = included_interface_deps_map.find(dep);
       assert(it != included_interface_deps_map.end());
       error.sample_includes = it->second;
     }
-    if (!!(visibility.included_visibility & Dependency_visibility::private_scope))
+    if (!!(visibility.included_scope & Dependency_scope::private_scope))
     {
       auto it = included_deps_map.find(dep);
       assert(it != included_deps_map.end());
