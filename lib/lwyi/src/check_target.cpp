@@ -3,6 +3,7 @@
 
 #include <lwyi/check_target.hpp>
 
+#include <lwyi/config.hpp>
 #include <lwyi/dependency_scope.hpp>
 #include <scanner/include.hpp>
 #include <scanner/scan.hpp>
@@ -45,11 +46,13 @@ struct Visibility
 };
 } // namespace
 
-std::vector<LWYI_error> check_target(const target_model::Target_model& target_model,
+std::vector<LWYI_error> check_target(const lwyi::Config& config,
+                                     const target_model::Target_model& target_model,
                                      [[maybe_unused]] const target_model::Target& target,
                                      const target_model::Target_data& target_data,
                                      const scanner::Intransitive_includes& target_includes)
 {
+  static_cast<void>(config);
   std::map<target_model::Target, Visibility> visibility_map;
 
   // filter linked dependencies to only include targets that have target data

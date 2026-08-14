@@ -24,6 +24,8 @@ class Target_model;
 
 namespace lwyi
 {
+class Config;
+
 struct LWYI_error
 {
   target_model::Target target;
@@ -33,7 +35,8 @@ struct LWYI_error
   std::vector<scanner::Include> sample_includes;
 };
 
-std::vector<LWYI_error> check_target(const target_model::Target_model& target_model,
+std::vector<LWYI_error> check_target(const lwyi::Config& config,
+                                     const target_model::Target_model& target_model,
                                      const target_model::Target& target,
                                      const target_model::Target_data& target_data,
                                      const scanner::Intransitive_includes& target_includes);

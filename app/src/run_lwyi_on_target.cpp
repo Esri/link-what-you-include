@@ -4,6 +4,7 @@
 #include <src/run_lwyi_on_target.hpp>
 
 #include <lwyi/check_target.hpp>
+#include <lwyi/config.hpp>
 #include <lwyi/dependency_scope.hpp>
 #include <message/message.hpp>
 #include <scanner/include.hpp>
@@ -58,7 +59,8 @@ std::string describe_included_scope(lwyi::Dependency_scope scope)
 }
 } // namespace
 
-bool run_lwyi_on_target(const target_model::Target_model& target_model,
+bool run_lwyi_on_target(const lwyi::Config& config,
+                        const target_model::Target_model& target_model,
                         const std::filesystem::path& binary_dir,
                         const target_model::Target& target,
                         const target_model::Target_data& target_data,
@@ -79,7 +81,7 @@ bool run_lwyi_on_target(const target_model::Target_model& target_model,
     return false;
   }
 
-  auto errors = lwyi::check_target(target_model, target, target_data, *eincludes);
+  auto errors = lwyi::check_target(config, target_model, target, target_data, *eincludes);
 
   // TODO: consider enabling the following with a command line option
 #if 0

@@ -3,6 +3,7 @@
 
 #include <lwyi/check_target.hpp>
 
+#include <lwyi/config.hpp>
 #include <lwyi/dependency_scope.hpp>
 #include <scanner/include.hpp>
 #include <scanner/scan.hpp>
@@ -115,7 +116,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
 
         THEN("no errors are returned")
         {
@@ -138,7 +139,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
 
         THEN("an error is produced")
         {
@@ -160,7 +161,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -182,7 +183,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -204,7 +205,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -227,7 +228,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -249,7 +250,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -272,7 +273,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -294,7 +295,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
@@ -318,7 +319,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       WHEN("check_target is called")
       {
         auto errors =
-          lwyi::check_target(target_model, target, libq_target_data, intransitive_includes);
+          lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
