@@ -44,16 +44,18 @@ std::string describe_linked_visibility(lwyi::Dependency_visibility visibility,
 {
   if (visibility == lwyi::Dependency_visibility::none)
   {
-      return std::format("does not link to {}", target_name);
+    return std::format("does not link to {}", target_name);
   }
-  return std::format("links to {} with {} scope", target_name, visibility_to_string(visibility));
+  return std::format("links to {} with {} scope",
+                     target_name,
+                     visibility_to_string(visibility));
 }
 
 std::string describe_included_visibility(lwyi::Dependency_visibility visibility)
 {
   if (visibility == lwyi::Dependency_visibility::none)
   {
-      return "not included";
+    return "not included";
   }
   return std::format("included with {} scope", visibility_to_string(visibility));
 }

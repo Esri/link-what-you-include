@@ -40,13 +40,15 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
     {
       return config;
     }
-    return std::unexpected(std::format("field 'targets': {}", simdjson::error_message(error)));
+    return std::unexpected(
+      std::format("field 'targets': {}", simdjson::error_message(error)));
   }
 
   simdjson::ondemand::object targets;
   if (auto error = targets_value.get_object().get(targets))
   {
-    return std::unexpected(std::format("field 'targets': {}", simdjson::error_message(error)));
+    return std::unexpected(
+      std::format("field 'targets': {}", simdjson::error_message(error)));
   }
 
   for (auto field : targets)
@@ -72,8 +74,9 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
       bool skip_validation = false;
       if (auto error = skip_validation_value.get_bool().get(skip_validation))
       {
-        return std::unexpected(std::format(
-          "target '{}'.skip_validation: {}", target_name, simdjson::error_message(error)));
+        return std::unexpected(std::format("target '{}'.skip_validation: {}",
+                                           target_name,
+                                           simdjson::error_message(error)));
       }
       target_config.skip_validation = skip_validation;
     }
@@ -101,7 +104,8 @@ std::expected<Config, std::string> load_config_impl(const simdjson::padded_strin
       }
     }
 
-    config.targets.emplace(target_model::Target{std::string(target_name)}, std::move(target_config));
+    config.targets.emplace(target_model::Target{std::string(target_name)},
+                           std::move(target_config));
   }
 
   return config;

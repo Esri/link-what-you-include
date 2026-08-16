@@ -3,18 +3,18 @@
 
 #include <target_model/target.hpp>
 #include <target_model/target_data.hpp>
-#include <target_model/target_model_loader.hpp>
 #include <target_model/target_model.hpp>
+#include <target_model/target_model_loader.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <expected>
 #include <filesystem>
 #include <fstream>
-#include <system_error>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <unordered_set>
 
 namespace
@@ -23,8 +23,7 @@ class Temp_directory
 {
 public:
   explicit Temp_directory(std::string_view name)
-  : path_(std::filesystem::temp_directory_path() /
-          std::filesystem::path{name})
+  : path_(std::filesystem::temp_directory_path() / std::filesystem::path{name})
   {
     std::error_code error;
     std::filesystem::remove_all(path_, error);
@@ -46,7 +45,6 @@ public:
   {
     return path_;
   }
-
 
   // NOLINTBEGIN(bugprone-easily-swappable-parameters)
   void write(std::string_view path_suffix, std::string_view file_content) const
@@ -149,7 +147,8 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   auto target_model = loader->make_target_model();
 
   auto data = target_model.get_target_data(target_model::Target{"liba"});
-  if (!data) {
+  if (!data)
+  {
     FAIL("Target data not found for liba");
   }
   REQUIRE(data.has_value());
@@ -157,15 +156,18 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   CHECK(liba.interface_include_directories.empty());
   CHECK(liba.interface_headers ==
         std::unordered_set<std::filesystem::path>{"/some/source/include/liba/liba.h"});
-  CHECK(liba.sources == std::unordered_set<std::filesystem::path>{"/some/source/liba.cpp",
-                                                                  "/some/source/include/liba/liba.h"});
+  CHECK(liba.sources ==
+        std::unordered_set<std::filesystem::path>{"/some/source/liba.cpp",
+                                                  "/some/source/include/liba/liba.h"});
   CHECK(liba.verify_interface_header_sets_sources ==
-        std::unordered_set<std::filesystem::path>{"/some/build/liba_verify_interface_header_sets/liba/liba.h.cxx"});
+        std::unordered_set<std::filesystem::path>{
+          "/some/build/liba_verify_interface_header_sets/liba/liba.h.cxx"});
   CHECK(liba.dependencies.empty());
   CHECK(liba.interface_dependencies.empty());
 
   data = target_model.get_target_data(target_model::Target{"libb"});
-  if (!data) {
+  if (!data)
+  {
     FAIL("Target data not found for libb");
   }
   REQUIRE(data.has_value());
@@ -262,5 +264,6 @@ TEST_CASE("target_model: file_api_target_model_loader_impl fails for missing cod
   auto result = loader->load_directory(temp_directory.path());
   REQUIRE(!result.has_value());
   CHECK((result.error().find("could not locate codemodel reply") != std::string::npos ||
-         result.error().find("failed to locate CMake File API reply directory") != std::string::npos));
+         result.error().find("failed to locate CMake File API reply directory") !=
+           std::string::npos));
 }

@@ -29,8 +29,8 @@ public:
 
   std::optional<Target> map_header_to_target(const std::filesystem::path& header) const;
 
-  void set_interface_include_prefixes(
-      const Target& target, const std::set<std::string>& prefixes);
+  void set_interface_include_prefixes(const Target& target,
+                                      const std::set<std::string>& prefixes);
 
   void for_each_target(const std::function<void(const Target&, const Target_data&)>& visitor) const;
 

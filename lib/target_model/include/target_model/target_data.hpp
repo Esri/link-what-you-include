@@ -35,6 +35,5 @@ struct Target_data
 
 bool is_interface_header(const Target_data& target_data,
                          const std::filesystem::path& filename);
-bool is_private_source(const Target_data& target_data,
-                       const std::filesystem::path& filename);
+bool is_private_source(const Target_data& target_data, const std::filesystem::path& filename);
 } // namespace target_model

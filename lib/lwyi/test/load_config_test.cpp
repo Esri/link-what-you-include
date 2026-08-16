@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <src/load_config_impl.hpp>
-
 #include <target_model/target.hpp>
 
 #include <catch2/catch_test_macros.hpp>
-
 #include <simdjson.h>
 
 #include <cstring>

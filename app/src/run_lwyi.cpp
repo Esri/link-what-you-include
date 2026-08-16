@@ -52,8 +52,9 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
   {
     return std::unexpected(load_result.error());
   }
-  const auto config_path = options.config_file.empty() ? (binary_dir / "lwyi-config.json")
-                                                       : std::filesystem::path(options.config_file);
+  const auto config_path = options.config_file.empty()
+                             ? (binary_dir / "lwyi-config.json")
+                             : std::filesystem::path(options.config_file);
   std::optional<lwyi::Config> config;
   if (!options.config_file.empty() && !std::filesystem::is_regular_file(config_path))
   {
@@ -76,7 +77,7 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     for (const auto& [target, target_config] : config->targets)
     {
       target_model.set_interface_include_prefixes(target,
-                                                 target_config.interface_include_prefixes);
+                                                  target_config.interface_include_prefixes);
     }
   }
 
@@ -104,7 +105,8 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     target_model.for_each_target(
       [&](const target_model::Target& target, const target_model::Target_data& target_data)
       {
-        if ((config.has_value() && config->skip_validation(target.name)) || target_data.imported)
+        if ((config.has_value() && config->skip_validation(target.name)) ||
+            target_data.imported)
         {
           return;
         }
@@ -117,7 +119,8 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
 
         message::heading("Target: {}", target.name);
 
-        success &= run_lwyi_on_target(target_model, binary_dir, target, target_data, num_threads);
+        success &=
+          run_lwyi_on_target(target_model, binary_dir, target, target_data, num_threads);
       });
   }
   else
@@ -153,7 +156,8 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
 
       message::heading("Target: {}", target.name);
 
-      success &= run_lwyi_on_target(target_model, binary_dir, target, *otarget_data, num_threads);
+      success &=
+        run_lwyi_on_target(target_model, binary_dir, target, *otarget_data, num_threads);
     }
   }
 

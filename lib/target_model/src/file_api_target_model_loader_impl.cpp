@@ -25,7 +25,6 @@
 #include <set>
 #include <string>
 #include <string_view>
-#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -65,8 +64,9 @@ struct Backtrace_graph
   std::vector<Backtrace_node> nodes;
 };
 
-std::expected<Backtrace_graph, std::string> parse_backtrace_graph(simdjson::ondemand::object& graph,
-                                                                  std::string_view object_context)
+std::expected<Backtrace_graph, std::string> parse_backtrace_graph(
+  simdjson::ondemand::object& graph,
+  std::string_view object_context)
 {
   Backtrace_graph result;
 
@@ -80,8 +80,9 @@ std::expected<Backtrace_graph, std::string> parse_backtrace_graph(simdjson::onde
     std::string_view path;
     if (auto error = file.get(path))
     {
-      return std::unexpected(
-        std::format("while reading {}.files: {}", object_context, simdjson::error_message(error)));
+      return std::unexpected(std::format("while reading {}.files: {}",
+                                         object_context,
+                                         simdjson::error_message(error)));
     }
     result.files.emplace_back(path);
   }
@@ -96,8 +97,9 @@ std::expected<Backtrace_graph, std::string> parse_backtrace_graph(simdjson::onde
     simdjson::ondemand::object node_object;
     if (auto error = node.get_object().get(node_object))
     {
-      return std::unexpected(
-        std::format("while reading {}.nodes: {}", object_context, simdjson::error_message(error)));
+      return std::unexpected(std::format("while reading {}.nodes: {}",
+                                         object_context,
+                                         simdjson::error_message(error)));
     }
 
     Backtrace_node backtrace_node;
@@ -203,7 +205,8 @@ std::expected<void, std::string> read_dependencies(
   simdjson::ondemand::value dependencies_field;
   if (auto error = root.find_field_unordered(field_name).get(dependencies_field))
   {
-    if (error == simdjson::NO_SUCH_FIELD) {
+    if (error == simdjson::NO_SUCH_FIELD)
+    {
       return {};
     }
     return std::unexpected(simdjson::error_message(error));
@@ -254,7 +257,8 @@ std::expected<void, std::string> read_dependencies(
       {
         return std::unexpected(simdjson::error_message(error));
       }
-      if (auto location = backtrace_location(*backtrace_graph, backtrace); location.has_value())
+      if (auto location = backtrace_location(*backtrace_graph, backtrace);
+          location.has_value())
       {
         dep_locations.try_emplace(dep_id, *location);
       }
@@ -274,9 +278,13 @@ std::expected<void, std::string> read_json_file(File_loader& file_loader,
     return std::unexpected(std::format("error: failed to load {}", path.string()));
   }
 
-  if (auto error = parser.iterate(file_loader.data(), file_loader.size(), file_loader.size_with_padding()).get(doc))
+  if (auto error =
+        parser
+          .iterate(file_loader.data(), file_loader.size(), file_loader.size_with_padding())
+          .get(doc))
   {
-    return std::unexpected(std::format("error parsing {}: {}", path.string(), simdjson::error_message(error)));
+    return std::unexpected(
+      std::format("error parsing {}: {}", path.string(), simdjson::error_message(error)));
   }
 
   return {};
@@ -288,7 +296,8 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
                                                     const std::string& json_name)
 {
   simdjson::ondemand::document doc;
-  if (auto result = read_json_file(file_loader, parser, reply_dir / json_name, doc); !result.has_value())
+  if (auto result = read_json_file(file_loader, parser, reply_dir / json_name, doc);
+      !result.has_value())
   {
     return std::unexpected(result.error());
   }
@@ -364,7 +373,8 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
           interface_header_sets.insert(index);
 
           simdjson::ondemand::value base_directories_field;
-          if (auto error = file_set.find_field_unordered("baseDirectories").get(base_directories_field);
+          if (auto error =
+                file_set.find_field_unordered("baseDirectories").get(base_directories_field);
               error != simdjson::NO_SUCH_FIELD)
           {
             if (error)
@@ -426,7 +436,8 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
         target.sources.insert(std::filesystem::path(path).lexically_normal());
 
         simdjson::ondemand::value file_set_indexes_field;
-        if (auto error = source.find_field_unordered("fileSetIndexes").get(file_set_indexes_field);
+        if (auto error =
+              source.find_field_unordered("fileSetIndexes").get(file_set_indexes_field);
             error != simdjson::NO_SUCH_FIELD)
         {
           if (error)
@@ -552,8 +563,9 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
   const auto reply_dir = build_dir / ".cmake" / "api" / "v1" / "reply";
   if (!std::filesystem::is_directory(reply_dir))
   {
-    return std::unexpected(std::format("error: failed to locate CMake File API reply directory {}",
-                                       reply_dir.string()));
+    return std::unexpected(
+      std::format("error: failed to locate CMake File API reply directory {}",
+                  reply_dir.string()));
   }
 
   std::filesystem::path codemodel_path;
@@ -607,15 +619,14 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
     return std::unexpected(simdjson::error_message(error));
   }
 
-  if (major != FILE_API_MAJOR_VERSION_REQUIRED ||
-      minor < FILE_API_MINOR_VERSION_REQUIRED)
+  if (major != FILE_API_MAJOR_VERSION_REQUIRED || minor < FILE_API_MINOR_VERSION_REQUIRED)
   {
-    return std::unexpected(
-      std::format("error: lwyi requires CMake file API codemodel version {}.{} or newer; found {}.{}",
-                  FILE_API_MAJOR_VERSION_REQUIRED,
-                  FILE_API_MINOR_VERSION_REQUIRED,
-                  major,
-                  minor));
+    return std::unexpected(std::format(
+      "error: lwyi requires CMake file API codemodel version {}.{} or newer; found {}.{}",
+      FILE_API_MAJOR_VERSION_REQUIRED,
+      FILE_API_MINOR_VERSION_REQUIRED,
+      major,
+      minor));
   }
 
   simdjson::ondemand::object paths;
@@ -631,7 +642,8 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
   const auto source_root = std::filesystem::path(source_dir_string).lexically_normal();
 
   simdjson::ondemand::array configurations;
-  if (auto error = codemodel_root.find_field_unordered("configurations").get_array().get(configurations))
+  if (auto error =
+        codemodel_root.find_field_unordered("configurations").get_array().get(configurations))
   {
     return std::unexpected(simdjson::error_message(error));
   }
@@ -652,8 +664,8 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
   std::vector<std::pair<Target, Target_data>> target_to_target_data;
 
   std::vector<std::pair<std::string, std::string>> target_id_to_json;
-  auto collect_targets =
-    [&](std::string_view field_name, bool required) -> std::expected<void, std::string>
+  auto collect_targets = [&](std::string_view field_name,
+                             bool required) -> std::expected<void, std::string>
   {
     simdjson::ondemand::value targets_field;
     if (auto error = configuration.find_field_unordered(field_name).get(targets_field);
@@ -734,7 +746,8 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
         auto candidate = source.is_relative() ? source_root / source : source;
         verify_sources.push_back(candidate.lexically_normal());
       }
-      verify_sources_by_base_target[std::string(base_target_name)] = std::move(verify_sources);
+      verify_sources_by_base_target[std::string(base_target_name)] =
+        std::move(verify_sources);
       continue;
     }
 
@@ -742,7 +755,8 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
     {
       continue;
     }
-    if (target_info->imported && target_info->public_headers.empty() && target_info->include_dirs.empty())
+    if (target_info->imported && target_info->public_headers.empty() &&
+        target_info->include_dirs.empty())
     {
       continue;
     }
@@ -804,7 +818,9 @@ std::expected<std::vector<std::pair<Target, Target_data>>, std::string> load_fil
   {
     auto it = std::ranges::find_if(target_to_target_data,
                                    [&](const auto& pair)
-                                   { return pair.first.name == base_target_name; });
+                                   {
+                                     return pair.first.name == base_target_name;
+                                   });
     if (it != target_to_target_data.end())
     {
       it->second.verify_interface_header_sets_sources.insert(verify_sources.begin(),
@@ -842,6 +858,7 @@ Target_model File_api_target_model_loader_impl::make_target_model()
 
 std::unique_ptr<Target_model_loader> Target_model_loader::create()
 {
-  return std::make_unique<File_api_target_model_loader_impl>(std::make_unique<Real_file_loader>());
+  return std::make_unique<File_api_target_model_loader_impl>(
+    std::make_unique<Real_file_loader>());
 }
 } // namespace target_model

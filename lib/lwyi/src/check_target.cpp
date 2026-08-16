@@ -93,7 +93,8 @@ std::vector<LWYI_error> check_target(const target_model::Target_model& target_mo
       continue;
     }
     std::optional<target_model::Source_location> linked_location;
-    if (auto it = target_data.dependency_locations.find(dep); it != target_data.dependency_locations.end())
+    if (auto it = target_data.dependency_locations.find(dep);
+        it != target_data.dependency_locations.end())
     {
       linked_location = it->second;
     }
