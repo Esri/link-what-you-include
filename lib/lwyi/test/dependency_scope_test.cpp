@@ -121,3 +121,12 @@ TEST_CASE("lwyi: Dependency_scope operator&", "[lwyi]")
   a = pblc & pblc; // NOLINT(misc-redundant-expression)
   CHECK(a == Dependency_scope::public_scope);
 }
+
+TEST_CASE("lwyi: Dependency_scope operator~", "[lwyi]")
+{
+  using namespace lwyi;
+  CHECK((~Dependency_scope::none) == Dependency_scope::public_scope);
+  CHECK((~Dependency_scope::private_scope) == Dependency_scope::interface_scope);
+  CHECK((~Dependency_scope::interface_scope) == Dependency_scope::private_scope);
+  CHECK((~Dependency_scope::public_scope) == Dependency_scope::none);
+}

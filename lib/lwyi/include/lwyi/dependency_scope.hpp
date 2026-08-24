@@ -18,4 +18,5 @@ enum class Dependency_scope : uint8_t
 bool operator!(Dependency_scope v);
 Dependency_scope& operator|=(Dependency_scope& lhs, Dependency_scope rhs);
 Dependency_scope operator&(Dependency_scope lhs, Dependency_scope rhs);
+Dependency_scope operator~(Dependency_scope s);
 } // namespace lwyi

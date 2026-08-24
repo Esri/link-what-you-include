@@ -23,4 +23,10 @@ Dependency_scope operator&(Dependency_scope lhs, Dependency_scope rhs)
 {
   return static_cast<Dependency_scope>(std::to_underlying(lhs) & std::to_underlying(rhs));
 }
+
+Dependency_scope operator~(Dependency_scope s)
+{
+  constexpr auto mask = std::to_underlying(Dependency_scope::public_scope);
+  return static_cast<Dependency_scope>(mask & (~std::to_underlying(s)));
+}
 } // namespace lwyi
