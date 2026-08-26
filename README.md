@@ -33,21 +33,22 @@ succeed. Over time, mistakes like this accumulate and the effectiveness of the
 target model is diminished.
 
 Both of the common mistakes mentioned above can be caught by
-link-what-you-include. The tool works by reading a JSON file containing target
-information acquired from the build system, scanning the source code for each
+link-what-you-include. The tool works by scanning the source code for each
 target, mapping the set of included headers to the set of dependent libraries,
-and comparing these dependencies to what is reported in the JSON file.
-Currently, the JSON file is in a bespoke format and can only be generated for a
-compatible cmake based buildsytem with the provided cmake module. The eventual
-goal is to use [CPS](https://github.com/cps-org/cps) files instead.
+and comparing these dependencies to what is specified by the build system.
+Currently, only CMake is supported because the required build system
+information is read from the [CMake file-based
+API](https://cmake.org/cmake/help/latest/manual/cmake-file-api.7.html). Support
+for other build systems is an eventual goal, possibly using
+[CPS](https://github.com/cps-org/cps).
 
-### Status
+## Status
 
 This tool is under development and may not be ready for production use. It is
 being used internally against itself and in one reasonably large project at
 Esri.
 
-### How to build
+## How to build
 
 A compiler with support for the C++23 standard is required. The following are known to work:
 - clang 21.1.8
@@ -130,34 +131,36 @@ $ cmake -GNinja -S. -Bbuild \
     -DCMAKE_CXX_CLANG_TIDY="clang-tidy-21;--warnings-as-errors=*;--use-color"
 ```
 
-### How to use with a cmake based build system
+## How to use
 
-CMake 4.3 or newer is required.
-
-The tool expects targets to define their public facing headers using
-[`File Sets`](https://cmake.org/cmake/help/latest/command/target_sources.html#file-sets)
-in order to accurately compare the source file include graph to the target
-model link graph.
-
-If a target does not define any public facing headers, any header under the
-`BASE_DIR` of one of its `INTERFACE_HEADER_SETS` will be associated with the
-target. Since multiple targets could use the same include directory, one or
-more include prefix strings can be provided to disambiguate.
-
-Write a [lwyi-config.json](doc/lwyi-config.schema.json) file to associate prefix
-strings with a target, and to exclude any targets from the validation. An
-[example config](lwyi-config.json) file exists for this project, and a
-[schema file](doc/lwyi-config.schema.json) describes the expected fields.
-
-Include [link_what_you_include-config.cmake](cmake/link_what_you_include-config.cmake)
-or use `find_package(link_what_you_include)` and call `link_what_you_include(target)`
-for every target you want to participate in the verification process. Configure the
-build system with a single-config generator. Then run the lwyi executable and point
-it at the configured build directory.
+Currently it is only possible to run this tool against a project that has a
+CMake based build system that uses version 4.3 or newer. In your CMake code,
+include
+[link_what_you_include-config.cmake](cmake/link_what_you_include-config.cmake)
+or use `find_package(link_what_you_include)`, and then configure a build system
+with a single-config generator. Then run the lwyi executable, pointing it at
+the configured build directory.
 
 ```
 $ lwyi -d /path/to/the/build/dir
 ```
+
+The tool will attempt to verify that all targets known to the build system
+correctly link what they include and include what they link. You can provide a
+[configuration file](doc/lwyi-config.md) with the `--config` command line
+argument to finely control the details of how this is done.
+
+The tool expects targets to define their public facing headers using [File
+Sets](https://cmake.org/cmake/help/latest/command/target_sources.html#file-sets).
+This enables an accurate association between header files and their
+corresponding targets. Support for targets using the older style of specifying
+include directories usage requirements with
+[`target_include_directories()`](https://cmake.org/cmake/help/latest/command/target_include_directories.html)
+is possible but currently not functional. A work-around is to create an empty
+INTERFACE file set with the `BASE_DIRS` set to the targets interface include
+directories. Since multiple targets could use the same include directory, one
+or more include prefix strings can be provided in the configuration file to
+disambiguate.
 
 ### Contributing
 
