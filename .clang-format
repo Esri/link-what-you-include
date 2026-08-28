@@ -272,5 +272,9 @@ WhitespaceSensitiveMacros:
   - NS_SWIFT_NAME
   - PP_STRINGIZE
   - STRINGIZE
+---
+Language: Json
+BasedOnStyle: LLVM
+IndentWidth: 2
 ...
 

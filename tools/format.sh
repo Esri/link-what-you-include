@@ -1,3 +1,3 @@
 #!/bin/bash
 
-find lib app -type f \( -name "*.cpp" -o -name "*.hpp" \) -exec clang-format -i {} +
+git ls-files -c -o --exclude-standard | egrep '\.(cpp|hpp|json)' | xargs clang-format -i

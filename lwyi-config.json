@@ -1,14 +1,15 @@
 {
- "targets": {
-   "Catch2::Catch2WithMain": {
-     "interface_include_prefixes": [
-       "catch2"
-     ]
-   },
-   "clangTooling": {
-     "interface_include_prefixes": [
-       "clang", "llvm"
-     ]
-   }
- }
+  "targets": {
+    "Catch2::Catch2WithMain": {
+      "interface_include_prefixes": [
+        "catch2"
+      ]
+    },
+    "clangTooling": {
+      "interface_include_prefixes": [
+        "clang",
+        "llvm"
+      ]
+    }
+  }
 }
