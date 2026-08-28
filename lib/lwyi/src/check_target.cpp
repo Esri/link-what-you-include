@@ -21,25 +21,7 @@ namespace lwyi
 {
 namespace
 {
-std::map<target_model::Target, std::vector<scanner::Include>> collect_include_deps(
-  const target_model::Target_model& target_model,
-  const std::vector<scanner::Include>& includes)
-
-{
-  std::map<target_model::Target, std::vector<scanner::Include>> deps;
-  for (const auto& include : includes)
-  {
-    auto targets = target_model.map_header_to_targets(include.path);
-    if (!targets.empty())
-    {
-      // TODO: error if 1 < size
-      deps[targets[0]].push_back(include);
-    }
-  }
-  return deps;
-}
-
-struct Visibility
+struct Dependency_visibility
 {
   Dependency_scope linked_scope{Dependency_scope::none};
   Dependency_scope included_scope{Dependency_scope::none};
@@ -48,16 +30,16 @@ struct Visibility
 
 std::vector<LWYI_error> check_target(const lwyi::Config& config,
                                      const target_model::Target_model& target_model,
-                                     [[maybe_unused]] const target_model::Target& target,
+                                     const target_model::Target& target,
                                      const target_model::Target_data& target_data,
                                      const scanner::Intransitive_includes& target_includes)
 {
-  static_cast<void>(config);
-  std::map<target_model::Target, Visibility> visibility_map;
+  std::map<target_model::Target, Dependency_visibility> visibility_map;
 
-  // filter linked dependencies to only include targets that have target data
+  // only include linked dependencies that are targets in the target model
   for (const auto& dep : target_data.interface_dependencies)
   {
+    // TODO Produce an error if dep is not ignored and shares includes or include directories with other targets
     if (target_model.get_target_data(dep).has_value())
     {
       visibility_map[dep].linked_scope |= Dependency_scope::interface_scope;
@@ -65,37 +47,73 @@ std::vector<LWYI_error> check_target(const lwyi::Config& config,
   }
   for (const auto& dep : target_data.dependencies)
   {
+    // TODO Produce an error if dep is not ignored and shares includes or include directories with other targets
     if (target_model.get_target_data(dep).has_value())
     {
       visibility_map[dep].linked_scope |= Dependency_scope::private_scope;
     }
   }
 
-  // map the included headers to their targets and group them by the targets
-  const std::map<target_model::Target, std::vector<scanner::Include>> included_interface_deps_map =
-    collect_include_deps(target_model, target_includes.interface_includes);
-  const std::map<target_model::Target, std::vector<scanner::Include>> included_deps_map =
-    collect_include_deps(target_model, target_includes.includes);
+  // only include header dependencies that map to targets in the target model
+  std::map<target_model::Target, std::vector<scanner::Include>> included_interface_deps_map;
+  for (const auto& include : target_includes.interface_includes)
+  {
+    auto targets = target_model.map_header_to_targets(include.path);
+    // TODO: Produce an error if there is more than one target here after removing those that should be ignored
+    for (const auto& target : targets)
+    {
+      visibility_map[target].included_scope |= Dependency_scope::interface_scope;
+      included_interface_deps_map[target].push_back(include);
+    }
+  }
+  std::map<target_model::Target, std::vector<scanner::Include>> included_deps_map;
+  for (const auto& include : target_includes.includes)
+  {
+    auto targets = target_model.map_header_to_targets(include.path);
+    // TODO: Produce an error if there is more than one target here after removing those that should be ignored
+    for (const auto& target : targets)
+    {
+      visibility_map[target].included_scope |= Dependency_scope::private_scope;
+      included_deps_map[target].push_back(include);
+    }
+  }
 
-  // isolate the included target dependencies
-  for (const auto& pair : included_interface_deps_map)
-  {
-    const auto& dep = pair.first;
-    visibility_map[dep].included_scope |= Dependency_scope::interface_scope;
-  }
-  for (const auto& pair : included_deps_map)
-  {
-    const auto& dep = pair.first;
-    visibility_map[dep].included_scope |= Dependency_scope::private_scope;
-  }
+  const auto& target_config = config.get_target_config(target);
 
   std::vector<LWYI_error> errors;
   for (const auto& [dep, visibility] : visibility_map)
   {
-    if (visibility.linked_scope == visibility.included_scope)
+    if (visibility.included_scope == visibility.linked_scope)
     {
       continue;
     }
+
+    // when not pedantic, allow interface including with public linking
+    if (!config.get_global_config().pedantic &&
+        visibility.included_scope == Dependency_scope::interface_scope &&
+        visibility.linked_scope == Dependency_scope::public_scope)
+    {
+      continue;
+    }
+
+    const auto& dep_config = config.get_target_config(dep);
+
+    const bool allow_over_include = target_config.allow_includes_set.contains(dep) ||
+                                    target_config.allow_includes ||
+                                    dep_config.interface_allow_includes;
+    const bool allow_over_link = target_config.allow_links_set.contains(dep) ||
+                                 target_config.allow_links ||
+                                 dep_config.interface_allow_links;
+    const auto over_include_scope = visibility.included_scope & ~visibility.linked_scope;
+    const auto over_link_scope = visibility.linked_scope & ~visibility.included_scope;
+    const bool over_include = !!over_include_scope;
+    const bool over_link = !!over_link_scope;
+
+    if ((!over_include || allow_over_include) && (!over_link || allow_over_link))
+    {
+      continue;
+    }
+
     std::optional<target_model::Source_location> linked_location;
     if (auto it = target_data.dependency_locations.find(dep);
         it != target_data.dependency_locations.end())

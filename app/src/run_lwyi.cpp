@@ -111,7 +111,8 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
     target_model.for_each_target(
       [&](const target_model::Target& target, const target_model::Target_data& target_data)
       {
-        if (config.get_target_config(target).skip_validation || target_data.imported)
+        const auto& target_config = config.get_target_config(target);
+        if ((target_config.allow_includes && target_config.allow_links) || target_data.imported)
         {
           return;
         }
@@ -132,34 +133,33 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
   {
     for (const auto& target : selected_targets)
     {
-      auto otarget_data = target_model.get_target_data(target);
-      if (!otarget_data.has_value())
-      {
-        if (!first_target)
-        {
-          message::blank_line();
-        }
-        first_target = false;
-
-        message::heading("Target: {}", target.name);
-        message::error("No target named {} found", target.name);
-        success = false;
-        break;
-      }
-
-      if (config.get_target_config(target).skip_validation)
-      {
-        message::note("Validation skipped by config.");
-        continue;
-      }
-
       if (!first_target)
       {
         message::blank_line();
       }
       first_target = false;
-
       message::heading("Target: {}", target.name);
+
+      auto otarget_data = target_model.get_target_data(target);
+      if (!otarget_data.has_value())
+      {
+        message::error("No target named {} found", target.name);
+        success = false;
+        break;
+      }
+
+      if (otarget_data->get().imported)
+      {
+        message::note("Imported target. Skipping.");
+        continue;
+      }
+
+      const auto& target_config = config.get_target_config(target);
+      if (target_config.allow_includes && target_config.allow_links)
+      {
+        message::note("Validation skipped by config.");
+        continue;
+      }
 
       success &=
         run_lwyi_on_target(config, target_model, binary_dir, target, *otarget_data, num_threads);

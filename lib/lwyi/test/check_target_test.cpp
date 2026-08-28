@@ -113,7 +113,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       intransitive_includes.includes = {{"/liba/include/one.h", {{"/libq/src/one.cpp", 12U}}},
                                         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -136,7 +136,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       intransitive_includes.includes = {{"/liba/include/one.h", {{"/libq/src/one.cpp", 12U}}},
                                         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -144,8 +144,72 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
+          CHECK(errors[0].target == target_model::Target{"liba"});
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::public_scope);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links_set.insert(target_model::Target{"liba"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_links")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"liba"}];
+        target_config.interface_allow_links = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -158,15 +222,95 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       intransitive_includes.includes = {
         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
+
+        THEN("no errors are returned because this type of overlinking is allowed when in non-pedantic mode")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a pedantic config")
+      {
+        auto errors = lwyi::check_target({{true}, {}},
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
         THEN("an error is produced")
         {
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::public_scope);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links_set.insert(target_model::Target{"liba"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_links")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"liba"}];
+        target_config.interface_allow_links = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -180,7 +324,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       intransitive_includes.includes = {{"/liba/include/one.h", {{"/libq/src/one.cpp", 12U}}},
                                         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -189,6 +333,69 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::private_scope);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes_set.insert(target_model::Target{"libb"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libb"}];
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -202,7 +409,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       intransitive_includes.includes = {
         {"/liba/include/one.h", {{"/libq/src/one.cpp", 12U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -211,6 +418,72 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::private_scope);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links_set and allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links_set.insert(target_model::Target{"libb"});
+        target_config.allow_includes_set.insert(target_model::Target{"libb"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links and allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links = true;
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_links and interface_allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libb"}];
+        target_config.interface_allow_links = true;
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -225,7 +498,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}},
         {"/libc/include/one.h", {{"/libq/src/one.cpp", 13U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -234,6 +507,69 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::interface_scope);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes_set.insert(target_model::Target{"libc"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_links")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libc"}];
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -247,7 +583,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}},
         {"/libc/include/one.h", {{"/libq/src/one.cpp", 13U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -256,6 +592,72 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::interface_scope);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links_set and allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links_set.insert(target_model::Target{"libc"});
+        target_config.allow_includes_set.insert(target_model::Target{"libc"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_links and allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_links = true;
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_links and interface_allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libc"}];
+        target_config.interface_allow_links = true;
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -270,7 +672,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}},
         {"/libd/include/one.h", {{"/libd/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -279,6 +681,69 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::none);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes_set.insert(target_model::Target{"libd"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libd"}];
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -292,7 +757,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       intransitive_includes.includes = {{"/liba/include/one.h", {{"/libq/src/one.cpp", 12U}}},
                                         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -301,6 +766,69 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::none);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes_set.insert(target_model::Target{"libd"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libd"}];
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }
@@ -316,7 +844,7 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
         {"/libb/include/one.h", {{"/libq/src/two.cpp", 34U}}},
         {"/libd/include/one.h", {{"/libd/src/two.cpp", 34U}}}};
 
-      WHEN("check_target is called")
+      WHEN("check_target is called with a default config")
       {
         auto errors =
           lwyi::check_target({}, target_model, target, libq_target_data, intransitive_includes);
@@ -325,6 +853,69 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           REQUIRE(errors.size() == 1);
           CHECK(errors[0].linked_scope == lwyi::Dependency_scope::none);
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes_set")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes_set.insert(target_model::Target{"libd"});
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libq"}];
+        target_config.allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
+        }
+      }
+      WHEN("check_target is called with a config that has interface_allow_includes")
+      {
+        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        auto& target_config = target_configs[target_model::Target{"libd"}];
+        target_config.interface_allow_includes = true;
+        lwyi::Config config({}, std::move(target_configs));
+        auto errors = lwyi::check_target(config,
+                                         target_model,
+                                         target,
+                                         libq_target_data,
+                                         intransitive_includes);
+
+        THEN("no errors are returned")
+        {
+          CHECK(errors.empty());
+          if (!errors.empty())
+          {
+            dump(errors);
+          }
         }
       }
     }

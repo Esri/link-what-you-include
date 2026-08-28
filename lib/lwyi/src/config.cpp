@@ -15,11 +15,18 @@ namespace lwyi
 {
 Config::Config() = default;
 
-Config::Config(std::map<target_model::Target, Target_config> target_configs)
-: target_configs_(std::sorted_unique, // NOLINT(misc-include-cleaner) false error
+Config::Config(const Global_config& global_config,
+               std::map<target_model::Target, Target_config> target_configs)
+: global_config_(global_config),
+  target_configs_(std::sorted_unique, // NOLINT(misc-include-cleaner) false error
                   std::make_move_iterator(target_configs.begin()),
                   std::make_move_iterator(target_configs.end()))
 {
+}
+
+const Global_config& Config::get_global_config() const
+{
+  return global_config_;
 }
 
 const Target_config& Config::get_target_config(const target_model::Target& target) const

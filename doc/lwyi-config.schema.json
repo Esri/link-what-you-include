@@ -4,9 +4,13 @@
   "title": "LWYI Config",
   "type": "object",
   "properties": {
+    "pedantic": {
+      "type": "boolean",
+      "description": "Control whether validation enforces strict coherence of the include and link dependencies."
+    },
     "targets": {
       "type": "object",
-      "description": "Per-target overrides keyed by target name.",
+      "description": "Per-target config keyed by target name.",
       "additionalProperties": {
         "$ref": "#/$defs/targetConfig"
       }
@@ -17,13 +21,43 @@
     "targetConfig": {
       "type": "object",
       "properties": {
-        "skip_validation": {
+        "allow_includes": {
+          "type": [
+            "boolean",
+            "array"
+          ],
+          "description": "A list of targets this target may include without linking, or a boolean controlling if all include validation is skipped.",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "allow_links": {
+          "type": [
+            "boolean",
+            "array"
+          ],
+          "description": "A list of targets this target may link without including, or a boolean controlling if all link validation is skipped.",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "interface_allow_includes": {
           "type": "boolean",
-          "description": "If true, lwyi will skip validation for this target."
+          "description": "Control whether all include validation of usages of this target is skipped."
+        },
+        "interface_allow_links": {
+          "type": "boolean",
+          "description": "Control whether all link validation of usages of this target is skipped."
+        },
+        "ignore": {
+          "type": "boolean",
+          "description": "Control whether all validation of this target is skipped."
         },
         "interface_include_prefixes": {
           "type": "array",
-          "description": "Additional interface include prefixes for this target.",
+          "description": "Prefix strings used to disambiguate headers belonging to this target when its interface include directories overlap with another target.",
           "items": {
             "type": "string"
           },
