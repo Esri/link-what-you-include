@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <simdjson.h>
+#include <catch2/catch_message.hpp>
 
 #include <cstring>
 #include <set>
