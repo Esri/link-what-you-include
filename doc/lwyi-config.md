@@ -63,26 +63,27 @@ that may contain the following fields:
 ### `allow_includes`
 
 An optional list of targets this target may include without linking, or a
-boolean controlling if all include validation is skipped. An empty array is
-equivalent to `false`. The default is `false`.
+boolean controlling whether all targets may be included without linking. The
+default is `[]`, which is equivalent to `false`.
 
 ### `allow_links`
 
 An optional list of targets this target may link without including, or a
-boolean indicating if all link validation is skipped. An empty array is
-equivalent to `false`. The default is `false`.
+boolean controlling whether all targets may be linked without including. The
+default is `[]`, which is equivalent to `false`.
 
 ### `interface_allow_includes`
 
-An optional boolean controlling if all include validation of usages of this
-target is skipped. If `true`, lwyi will allow users of this target to include
-it without linking to it. The default is `false`.
+An optional boolean controlling whether other targets may include this target
+without linking to it. Setting this to `true` is equivalent to adding this
+target to the `allow_includes` list of all other targets. The default is
+`false`.
 
 ### `interface_allow_links`
 
-An optional boolean indicating if all link validation of usages of this target
-is skipped. If true, lwyi will allow users of this target to link to it without
-including it. The default is `false`.
+An optional boolean controlling whether other targets may link to this target
+without including it. Setting this to `true` is equivalent to adding this
+target to the `allow_links` list of all other targets. The default is `false`.
 
 ### `interface_include_prefixes`
 

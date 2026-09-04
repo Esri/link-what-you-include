@@ -6,7 +6,7 @@
   "properties": {
     "pedantic": {
       "type": "boolean",
-      "description": "Control whether validation enforces strict coherence of the include and link dependencies."
+      "description": "Control whether validation enforces strict coherence of the include and link dependencies, including not permitting linking with PUBLIC scope when only INTERFACE scope is required."
     },
     "targets": {
       "type": "object",
@@ -26,7 +26,7 @@
             "boolean",
             "array"
           ],
-          "description": "A list of targets this target may include without linking, or a boolean controlling if all include validation is skipped.",
+          "description": "A list of targets this target may include without linking, or a boolean controlling whether all targets may be included without linking.",
           "items": {
             "type": "string"
           },
@@ -37,7 +37,7 @@
             "boolean",
             "array"
           ],
-          "description": "A list of targets this target may link without including, or a boolean controlling if all link validation is skipped.",
+          "description": "A list of targets this target may link without including, or a boolean controlling whether all targets may be linked without including.",
           "items": {
             "type": "string"
           },
@@ -45,11 +45,11 @@
         },
         "interface_allow_includes": {
           "type": "boolean",
-          "description": "Control whether all include validation of usages of this target is skipped."
+          "description": "Control whether other targets may include this target without linking to it."
         },
         "interface_allow_links": {
           "type": "boolean",
-          "description": "Control whether all link validation of usages of this target is skipped."
+          "description": "Control whether other targets may link to this target without including it."
         },
         "ignore": {
           "type": "boolean",
