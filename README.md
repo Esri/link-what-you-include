@@ -162,6 +162,23 @@ directories. Since multiple targets could use the same include directory, one
 or more include prefix strings can be provided in the configuration file to
 disambiguate.
 
+The tool will only scan headers that are reachable from a source file.
+Therefore, in order to correctly enforce the PUBLIC and INTERFACE dependencies
+of a target, each public facing header must be included by a source file. There
+are two ways to achieve this:
+
+1. By convention. For each header file, ensure that there is a corresponding
+   source file that includes it, even if the source file is otherwise empty.
+   This is a convention often touted by John Lakos and used in the [BDE
+   libraries](https://github.com/bloomberg/bde/wiki/physical-code-organization#components).
+
+2. Use an INTERFACE or PUBLIC [header
+   set](https://cmake.org/cmake/help/latest/command/target_sources.html#file-sets)
+   and set
+   [CMAKE_VERIFY_INTERFACE_HEADER_SETS](https://cmake.org/cmake/help/latest/variable/CMAKE_VERIFY_INTERFACE_HEADER_SETS.html).
+   CMake will then generate a source file for each header in set that lwyi can
+   scan.
+
 ### Contributing
 
 Esri welcomes contributions from anyone and everyone. Please see our
