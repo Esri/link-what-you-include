@@ -8,7 +8,6 @@
 
 #include <expected>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace scanner
@@ -16,8 +15,8 @@ namespace scanner
 std::expected<Intransitive_includes, std::string> merge_includes(
   std::vector<std::expected<Include_data, std::string>> include_data_array)
 {
-  Include_set interface_includes;
   Include_set includes;
+  Include_set interface_includes;
   for (auto& eincdata : include_data_array)
   {
     if (!eincdata.has_value())
@@ -27,10 +26,7 @@ std::expected<Intransitive_includes, std::string> merge_includes(
     }
 
     includes.merge(eincdata->includes);
-    for (auto& includes : eincdata->interface_header_includes)
-    {
-      interface_includes.merge(includes.second);
-    }
+    interface_includes.merge(eincdata->interface_includes);
   }
 
   Intransitive_includes output;

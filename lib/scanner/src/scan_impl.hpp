@@ -58,7 +58,7 @@ using Include_set = std::set<Include, Include_cmp>;
 struct Include_data
 {
   Include_set includes;
-  std::map<std::filesystem::path, Include_set> interface_header_includes;
+  Include_set interface_includes;
 };
 
 std::expected<Include_data, std::string> scan_impl(
