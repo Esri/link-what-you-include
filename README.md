@@ -150,17 +150,18 @@ correctly link what they include and include what they link. You can provide a
 [configuration file](doc/lwyi-config.md) with the `--config` command line
 argument to finely control the details of how this is done.
 
-The tool expects targets to define their public facing headers using [File
+The tool can associate public headers with targets using [File
 Sets](https://cmake.org/cmake/help/latest/command/target_sources.html#file-sets).
-This enables an accurate association between header files and their
-corresponding targets. Support for targets using the older style of specifying
-include directories usage requirements with
-[`target_include_directories()`](https://cmake.org/cmake/help/latest/command/target_include_directories.html)
-is possible but currently not functional. A work-around is to create an empty
-INTERFACE file set with the `BASE_DIRS` set to the targets interface include
-directories. Since multiple targets could use the same include directory, one
-or more include prefix strings can be provided in the configuration file to
-disambiguate.
+With CMake 4.5 or newer, it also supports associating headers based on their
+include directories exposed by
+[`target_include_directories()`](https://cmake.org/cmake/help/latest/command/target_include_directories.html).
+
+If using an older version of CMake, creating an `INTERFACE` file set with
+`BASE_DIRS` set to the target's interface include directories can serve as a workaround.
+
+File sets provide more precise header-to-target associations. When multiple targets
+share an include directory, use interface include prefixes in the
+[configuration file](doc/lwyi-config.md) to disambiguate their headers.
 
 The tool will only scan headers that are reachable from a source file.
 Therefore, in order to correctly enforce the PUBLIC and INTERFACE dependencies

@@ -16,6 +16,7 @@
 #include <string_view>
 #include <system_error>
 #include <unordered_set>
+#include <vector>
 
 namespace
 {
@@ -69,7 +70,7 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
 
   temp_directory.write(".cmake/api/v1/reply/codemodel-v2-123.json",
                        R"===({
-  "version": { "major": 2, "minor": 10 },
+  "version": { "major": 2, "minor": 12 },
   "paths": { "source": "/some/source" },
   "configurations": [
     {
@@ -89,6 +90,9 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   "type": "STATIC_LIBRARY",
   "fileSets": [
     { "type": "HEADERS", "visibility": "PUBLIC" }
+  ],
+  "interfaceIncludes": [
+    { "path": "/some/source/include", "backtrace": 1 }
   ],
   "backtraceGraph": { "commands": [], "files": [], "nodes": [] },
   "sources": [
@@ -113,6 +117,9 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   "name": "libb",
   "type": "STATIC_LIBRARY",
   "fileSets": [],
+  "interfaceIncludes": [
+    { "path": "include/libb", "isSystem": true }
+  ],
   "backtraceGraph": { "commands": [], "files": [], "nodes": [] },
   "sources": [
     { "path": "/some/source/libb.cpp" }
@@ -130,7 +137,11 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   "id": "libinterface::@1",
   "name": "libinterface",
   "type": "STATIC_LIBRARY",
+  "imported": true,
   "fileSets": [],
+  "interfaceIncludes": [
+    { "path": "/third-party/include" }
+  ],
   "backtraceGraph": { "commands": [], "files": [], "nodes": [] },
   "sources": [
     { "path": "/some/source/libinterface.cpp" }
@@ -153,7 +164,8 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   }
   REQUIRE(data.has_value());
   const auto& liba = data->get(); // NOLINT(bugprone-unchecked-optional-access)
-  CHECK(liba.interface_include_directories.empty());
+  CHECK(liba.interface_include_directories ==
+        std::unordered_set<std::filesystem::path>{"/some/source/include"});
   CHECK(liba.interface_headers ==
         std::unordered_set<std::filesystem::path>{"/some/source/include/liba/liba.h"});
   CHECK(liba.sources ==
@@ -172,10 +184,104 @@ TEST_CASE("target_model: file_api_target_model_loader_impl can load a valid code
   }
   REQUIRE(data.has_value());
   const auto& libb = data->get(); // NOLINT(bugprone-unchecked-optional-access)
-  CHECK(libb.interface_include_directories.empty());
+  CHECK(libb.interface_include_directories ==
+        std::unordered_set<std::filesystem::path>{"/some/source/include/libb"});
   CHECK(libb.dependencies == std::unordered_set<target_model::Target>{{"liba"}});
   CHECK(libb.interface_dependencies ==
         std::unordered_set<target_model::Target>{{"liba"}, {"libinterface"}});
+
+  data = target_model.get_target_data(target_model::Target{"libinterface"});
+  REQUIRE(data.has_value());
+  const auto& libinterface = data->get(); // NOLINT(bugprone-unchecked-optional-access)
+  CHECK(libinterface.imported);
+  CHECK(libinterface.interface_include_directories ==
+        std::unordered_set<std::filesystem::path>{"/third-party/include"});
+  CHECK(target_model.map_header_to_targets("/some/source/include/libb/detail.h") ==
+        std::vector<target_model::Target>{{"liba"}, {"libb"}});
+  CHECK(target_model.map_header_to_targets("/third-party/include/library.h") ==
+        std::vector<target_model::Target>{{"libinterface"}});
+}
+
+TEST_CASE("target_model: file_api_target_model_loader_impl supports codemodel 2.10",
+          "[target_model]")
+{
+  Temp_directory temp_directory{"lwyi-file-api-test-codemodel-2-10"};
+  temp_directory.write(".cmake/api/v1/reply/codemodel-v2-123.json",
+                       R"===({
+  "version": { "major": 2, "minor": 10 },
+  "paths": { "source": "/some/source" },
+  "configurations": [{
+    "targets": [{ "id": "liba::@1", "name": "liba", "jsonFile": "target-liba.json" }]
+  }]
+})===");
+  temp_directory.write(".cmake/api/v1/reply/target-liba.json",
+                       R"===({
+  "id": "liba::@1",
+  "name": "liba",
+  "type": "STATIC_LIBRARY",
+  "fileSets": [{
+    "type": "HEADERS",
+    "visibility": "PUBLIC",
+    "baseDirectories": ["include"]
+  }],
+  "sources": [
+    { "path": "liba.cpp" },
+    { "path": "include/liba.hpp", "fileSetIndex": 0 }
+  ]
+})===");
+
+  auto loader = target_model::Target_model_loader::create();
+  auto result = loader->load_directory(temp_directory.path());
+  if (!result.has_value())
+  {
+    FAIL(result.error());
+  }
+  auto model = loader->make_target_model({});
+  auto data = model.get_target_data(target_model::Target{"liba"});
+  REQUIRE(data.has_value());
+  const auto& liba = data->get(); // NOLINT(bugprone-unchecked-optional-access)
+  CHECK(liba.interface_headers ==
+        std::unordered_set<std::filesystem::path>{"/some/source/include/liba.hpp"});
+  CHECK(liba.interface_include_directories.empty());
+}
+
+TEST_CASE("target_model: file_api_target_model_loader_impl supports codemodel 2.11",
+          "[target_model]")
+{
+  Temp_directory temp_directory{"lwyi-file-api-test-codemodel-2-11"};
+  temp_directory.write(".cmake/api/v1/reply/codemodel-v2-123.json",
+                       R"===({
+  "version": { "major": 2, "minor": 11 },
+  "paths": { "source": "/some/source" },
+  "configurations": [{
+    "targets": [{ "id": "liba::@1", "name": "liba", "jsonFile": "target-liba.json" }]
+  }]
+})===");
+  temp_directory.write(".cmake/api/v1/reply/target-liba.json",
+                       R"===({
+  "id": "liba::@1",
+  "name": "liba",
+  "type": "STATIC_LIBRARY",
+  "fileSets": [{ "type": "HEADERS", "visibility": "PUBLIC" }],
+  "sources": [
+    { "path": "liba.cpp" },
+    { "path": "include/liba.hpp", "fileSetIndexes": [0] }
+  ]
+})===");
+
+  auto loader = target_model::Target_model_loader::create();
+  auto result = loader->load_directory(temp_directory.path());
+  if (!result.has_value())
+  {
+    FAIL(result.error());
+  }
+  auto model = loader->make_target_model({});
+  auto data = model.get_target_data(target_model::Target{"liba"});
+  REQUIRE(data.has_value());
+  const auto& liba = data->get(); // NOLINT(bugprone-unchecked-optional-access)
+  CHECK(liba.interface_headers ==
+        std::unordered_set<std::filesystem::path>{"/some/source/include/liba.hpp"});
+  CHECK(liba.interface_include_directories.empty());
 }
 
 TEST_CASE("target_model: file_api_target_model_loader_impl get dependency backtrace",
