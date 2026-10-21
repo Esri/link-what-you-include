@@ -33,8 +33,35 @@ namespace target_model
 namespace
 {
 
-constexpr int FILE_API_MAJOR_VERSION_REQUIRED = 2;
-constexpr int FILE_API_MINOR_VERSION_REQUIRED = 10;
+enum class Codemodel_feature : uint8_t
+{
+  FILE_SET_INDEXES,
+  INTERFACE_INCLUDES
+};
+
+struct Codemodel_version
+{
+  uint64_t major;
+  uint64_t minor;
+
+  constexpr auto operator<=>(const Codemodel_version&) const = default;
+
+  [[nodiscard]] constexpr bool supports(Codemodel_feature feature) const
+  {
+    // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
+    switch (feature)
+    {
+      case Codemodel_feature::FILE_SET_INDEXES:
+        return *this >= Codemodel_version{2, 11};
+      case Codemodel_feature::INTERFACE_INCLUDES:
+        return *this >= Codemodel_version{2, 12};
+    }
+    // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
+    return false;
+  }
+};
+
+constexpr Codemodel_version FILE_API_VERSION_REQUIRED{2, 10};
 
 struct Target_info
 {
@@ -292,7 +319,8 @@ std::expected<void, std::string> read_json_file(File_loader& file_loader,
 std::expected<Target_info, std::string> read_target(const std::filesystem::path& reply_dir,
                                                     File_loader& file_loader,
                                                     simdjson::ondemand::parser& parser,
-                                                    const std::string& json_name)
+                                                    const std::string& json_name,
+                                                    Codemodel_version version)
 {
   simdjson::ondemand::document doc;
   if (auto result = read_json_file(file_loader, parser, reply_dir / json_name, doc);
@@ -434,34 +462,61 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
         }
         target.sources.insert(std::filesystem::path(path).lexically_normal());
 
-        simdjson::ondemand::value file_set_indexes_field;
-        if (auto error =
-              source.find_field_unordered("fileSetIndexes").get(file_set_indexes_field);
-            error != simdjson::NO_SUCH_FIELD)
+        std::vector<uint64_t> file_set_indexes;
+        if (version.supports(Codemodel_feature::FILE_SET_INDEXES))
         {
-          if (error)
+          simdjson::ondemand::value file_set_indexes_field;
+          if (auto error =
+                source.find_field_unordered("fileSetIndexes").get(file_set_indexes_field);
+              error != simdjson::NO_SUCH_FIELD)
           {
-            return std::unexpected(simdjson::error_message(error));
-          }
-
-          simdjson::ondemand::array file_set_indexes;
-          if (auto error = file_set_indexes_field.get_array().get(file_set_indexes))
-          {
-            return std::unexpected(simdjson::error_message(error));
-          }
-
-          for (auto file_set_index_value : file_set_indexes)
-          {
-            uint64_t file_set_index = 0U;
-            if (auto error = file_set_index_value.get_uint64().get(file_set_index))
+            if (error)
             {
               return std::unexpected(simdjson::error_message(error));
             }
-            if (interface_header_sets.contains(file_set_index))
+
+            simdjson::ondemand::array indexes;
+            if (auto error = file_set_indexes_field.get_array().get(indexes))
             {
-              target.public_headers.insert(std::filesystem::path(path).lexically_normal());
-              break;
+              return std::unexpected(simdjson::error_message(error));
             }
+
+            for (auto index_value : indexes)
+            {
+              uint64_t index = 0U;
+              if (auto error = index_value.get_uint64().get(index))
+              {
+                return std::unexpected(simdjson::error_message(error));
+              }
+              file_set_indexes.push_back(index);
+            }
+          }
+        }
+        else
+        {
+          simdjson::ondemand::value file_set_index_field;
+          if (auto error = source.find_field_unordered("fileSetIndex").get(file_set_index_field);
+              error != simdjson::NO_SUCH_FIELD)
+          {
+            if (error)
+            {
+              return std::unexpected(simdjson::error_message(error));
+            }
+            uint64_t index = 0U;
+            if (auto error = file_set_index_field.get_uint64().get(index))
+            {
+              return std::unexpected(simdjson::error_message(error));
+            }
+            file_set_indexes.push_back(index);
+          }
+        }
+
+        for (auto index : file_set_indexes)
+        {
+          if (interface_header_sets.contains(index))
+          {
+            target.public_headers.insert(std::filesystem::path(path).lexically_normal());
+            break;
           }
         }
       }
@@ -506,6 +561,40 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
     target.include_dirs.insert(target.include_dirs.end(),
                                pending_base_directories.begin(),
                                pending_base_directories.end());
+  }
+
+  if (version.supports(Codemodel_feature::INTERFACE_INCLUDES))
+  {
+    simdjson::ondemand::value interface_includes_field;
+    if (auto error = root.find_field_unordered("interfaceIncludes").get(interface_includes_field);
+        error != simdjson::NO_SUCH_FIELD)
+    {
+      if (error)
+      {
+        return std::unexpected(simdjson::error_message(error));
+      }
+
+      simdjson::ondemand::array interface_includes;
+      if (auto error = interface_includes_field.get_array().get(interface_includes))
+      {
+        return std::unexpected(simdjson::error_message(error));
+      }
+
+      for (auto include_value : interface_includes)
+      {
+        simdjson::ondemand::object include;
+        if (auto error = include_value.get_object().get(include))
+        {
+          return std::unexpected(simdjson::error_message(error));
+        }
+        std::string_view path;
+        if (auto error = include.find_field_unordered("path").get(path))
+        {
+          return std::unexpected(simdjson::error_message(error));
+        }
+        target.include_dirs.push_back(std::filesystem::path(path).lexically_normal());
+      }
+    }
   }
 
   std::optional<Backtrace_graph> backtrace_graph;
@@ -618,12 +707,13 @@ std::expected<std::map<Target, Target_data>, std::string> load_file_api_targets(
     return std::unexpected(simdjson::error_message(error));
   }
 
-  if (major != FILE_API_MAJOR_VERSION_REQUIRED || minor < FILE_API_MINOR_VERSION_REQUIRED)
+  const Codemodel_version codemodel_version{major, minor};
+  if (codemodel_version < FILE_API_VERSION_REQUIRED)
   {
     return std::unexpected(std::format(
       "error: lwyi requires CMake file API codemodel version {}.{} or newer; found {}.{}",
-      FILE_API_MAJOR_VERSION_REQUIRED,
-      FILE_API_MINOR_VERSION_REQUIRED,
+      FILE_API_VERSION_REQUIRED.major,
+      FILE_API_VERSION_REQUIRED.minor,
       major,
       minor));
   }
@@ -726,7 +816,7 @@ std::expected<std::map<Target, Target_data>, std::string> load_file_api_targets(
 
   for (const auto& [id, json_file] : target_id_to_json)
   {
-    auto target_info = read_target(reply_dir, file_loader, parser, json_file);
+    auto target_info = read_target(reply_dir, file_loader, parser, json_file, codemodel_version);
     if (!target_info.has_value())
     {
       return std::unexpected(target_info.error());
