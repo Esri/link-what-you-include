@@ -62,7 +62,7 @@ The following must be available:
   known to work.
 - [simdjson](https://github.com/simdjson/simdjson). Versions 4.2 and greater are
   expected to work, but due to upstream restrictions, we require either 4.2.x or
-  4.6.x.
+  5.0.x.
 
 The following are optional:
 

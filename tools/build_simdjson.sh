@@ -11,7 +11,7 @@ mkdir -p "$work_dir"
 cd "$work_dir"
 
 if [ ! -d "$work_dir/src" ]; then
-  version="4.6.4"
+  version="5.0.5"
   curl -LO "https://github.com/simdjson/simdjson/archive/refs/tags/v${version}.tar.gz"
   tar -xf "v${version}.tar.gz"
   mv "simdjson-${version}" "$work_dir/src"
