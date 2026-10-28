@@ -1,8 +1,16 @@
 {
   "targets": {
+    "Catch2::Catch2": {
+      "ignore": true
+    },
     "Catch2::Catch2WithMain": {
       "interface_include_prefixes": [
         "catch2"
+      ]
+    },
+    "simdjson::simdjson": {
+      "interface_include_prefixes": [
+        "simdjson"
       ]
     },
     "clangTooling": {
