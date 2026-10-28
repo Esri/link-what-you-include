@@ -156,9 +156,6 @@ With CMake 4.5 or newer, it also supports associating headers based on their
 include directories exposed by
 [`target_include_directories()`](https://cmake.org/cmake/help/latest/command/target_include_directories.html).
 
-If using an older version of CMake, creating an `INTERFACE` file set with
-`BASE_DIRS` set to the target's interface include directories can serve as a workaround.
-
 File sets provide more precise header-to-target associations. When multiple targets
 share an include directory, use interface include prefixes in the
 [configuration file](doc/lwyi-config.md) to disambiguate their headers.

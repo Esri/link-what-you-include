@@ -360,7 +360,6 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
   target.imported = !root.find_field_unordered("imported").error();
 
   std::set<uint64_t> interface_header_sets;
-  std::vector<std::filesystem::path> pending_base_directories;
   {
     simdjson::ondemand::value file_sets_field;
     if (auto error = root.find_field_unordered("fileSets").get(file_sets_field);
@@ -398,34 +397,6 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
         if (type == "HEADERS" && (visibility == "PUBLIC" || visibility == "INTERFACE"))
         {
           interface_header_sets.insert(index);
-
-          simdjson::ondemand::value base_directories_field;
-          if (auto error =
-                file_set.find_field_unordered("baseDirectories").get(base_directories_field);
-              error != simdjson::NO_SUCH_FIELD)
-          {
-            if (error)
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-
-            simdjson::ondemand::array base_directories;
-            if (auto error = base_directories_field.get_array().get(base_directories))
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-
-            for (auto base_directory_value : base_directories)
-            {
-              std::string_view base_directory;
-              if (auto error = base_directory_value.get(base_directory))
-              {
-                return std::unexpected(simdjson::error_message(error));
-              }
-              pending_base_directories.push_back(
-                std::filesystem::path(base_directory).lexically_normal());
-            }
-          }
         }
         ++index;
       }
@@ -554,13 +525,6 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
         target.public_headers.insert(std::filesystem::path(path).lexically_normal());
       }
     }
-  }
-
-  if (target.public_headers.empty())
-  {
-    target.include_dirs.insert(target.include_dirs.end(),
-                               pending_base_directories.begin(),
-                               pending_base_directories.end());
   }
 
   if (version.supports(Codemodel_feature::interface_includes))
