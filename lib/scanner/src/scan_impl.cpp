@@ -166,7 +166,9 @@ public:
     {
       if (!last_include_loc_.source.empty())
       {
-        message::debug("Push include chain {}:{}", last_include_loc_.source.string(), last_include_loc_.line);
+        message::debug("Push include chain {}:{}",
+                       last_include_loc_.source.string(),
+                       last_include_loc_.line);
         include_chain_.emplace_back(last_include_loc_);
       }
 
@@ -182,7 +184,9 @@ public:
     {
       if (!include_chain_.empty())
       {
-        message::debug("Pop include chain {}:{}", include_chain_.back().source.string(), include_chain_.back().line);
+        message::debug("Pop include chain {}:{}",
+                       include_chain_.back().source.string(),
+                       include_chain_.back().line);
         include_chain_.pop_back();
       }
 

@@ -4,9 +4,9 @@
 #include <src/load_config_impl.hpp>
 #include <target_model/target.hpp>
 
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <simdjson.h>
-#include <catch2/catch_message.hpp>
 
 #include <cstring>
 #include <set>
