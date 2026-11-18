@@ -1,11 +1,12 @@
 // Copyright (c) 2025 Environmental Systems Research Institute, Inc.
+
 // SPDX-License-Identifier: Apache-2.0
 
 #include <scanner/scan.hpp>
 
 #include <message/message.hpp>
 #include <scanner/include.hpp>
-#include <src/merge_includes.hpp>
+#include <src/include_sets.hpp>
 #include <src/scan_impl.hpp>
 #include <target_model/target_data.hpp>
 
@@ -16,384 +17,912 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/VirtualFileSystem.h>
 
-#include <print>
-#include <string>
-#include <string_view>
+#include <ostream>
 #include <unordered_set>
-#include <vector>
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
+
+namespace scanner
+{
+std::ostream& operator<<(std::ostream& os, const scanner::Source_line& sl)
+{
+  return os << sl.source.string() << ':' << sl.line;
+}
+
+std::ostream& operator<<(std::ostream& os, const scanner::Include_sets& is)
+{
+  os << "interface includes:";
+  for (const auto& interface_include : is.interface_includes)
+  {
+    os << "\n  " << interface_include.path.string();
+    for (const auto& source_line : interface_include.include_chain)
+    {
+      os << "\n    " << source_line;
+    }
+  }
+
+  os << "\nincludes:";
+  for (const auto& include : is.includes)
+  {
+    os << "\n  " << include.path.string();
+    for (const auto& source_line : include.include_chain)
+    {
+      os << "\n    " << source_line;
+    }
+  }
+
+  return os;
+}
+} // namespace scanner
 
 namespace
 {
-void dump(const scanner::Include_set& include_set, std::string_view indent = "")
+llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> make_file_system()
 {
-  for (const auto& include : include_set)
-  {
-    std::print("{}{}\n", indent, include.path.string());
-    for (const auto& source_line : include.include_chain)
-    {
-      std::print("{}  {}:{}\n", indent, source_line.source.string(), source_line.line);
-    }
-  }
+  return llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
+    new llvm::vfs::InMemoryFileSystem};
 }
 
-[[maybe_unused]] void dump(const scanner::Include_data& include_data)
+void add_file(llvm::vfs::InMemoryFileSystem& fs, const char* path, const char* content)
 {
-  std::print("includes:\n");
-  dump(include_data.includes, "  ");
-
-  std::print("interface_header_includes:\n");
-  for (const auto& [header, includes] : include_data.interface_header_includes)
-  {
-    std::print("  {}:\n", header.string());
-    dump(includes, std::string("  "));
-  }
-}
-
-[[maybe_unused]] void dump(const scanner::Intransitive_includes& ii)
-{
-  std::print("interface includes:\n");
-  for (const auto& interface_include : ii.interface_includes)
-  {
-    std::print("  {}\n", interface_include.path.string());
-    for (const auto& source_line : interface_include.include_chain)
-    {
-      std::print("    {}:{}\n", source_line.source.string(), source_line.line);
-    }
-  }
-
-  std::print("includes:\n");
-  for (const auto& include : ii.includes)
-  {
-    std::print("  {}\n", include.path.string());
-    for (const auto& source_line : include.include_chain)
-    {
-      std::print("    {}:{}\n", source_line.source.string(), source_line.line);
-    }
-  }
-}
-
-struct Literal_file
-{
-  const char* path;
-  const char* content;
-};
-
-void add_file(llvm::vfs::InMemoryFileSystem& fs, const Literal_file& file)
-{
-  fs.addFile(file.path, 0, llvm::MemoryBuffer::getMemBuffer(file.content));
+  fs.addFile(path, 0, llvm::MemoryBuffer::getMemBuffer(content));
 }
 } // namespace
 
-TEST_CASE("scanner: basic scan test", "[scanner]")
+TEST_CASE("scanner: scan collects interface and private includes", "[scanner]")
 {
   message::configure(message::Color_output::never, message::Message_level::normal);
-  auto fs = llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
-    new llvm::vfs::InMemoryFileSystem};
 
-  // 3rdparty
-  Literal_file a_hpp{"/a.hpp", ""};
-  Literal_file b_hpp{"/b.hpp", ""};
-
-  // interface
-  Literal_file interface_hpp{"/interface.hpp", R"(
+  // GIVEN:
+  //         private.cpp
+  //           ╱     ╲
+  //   interface.hpp  ╲
+  //         ╱         ╲
+  //      a.hpp       b.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/interface.hpp", R"(
     #include "a.hpp"
-    )"};
-
-  // private
-  Literal_file private_cpp{"/private.cpp", R"(
+    )");
+  add_file(*fs, "/private.cpp", R"(
     #include "interface.hpp"
     #include "b.hpp"
-    )"};
-
-  add_file(*fs, a_hpp);
-  add_file(*fs, b_hpp);
-  add_file(*fs, interface_hpp);
-  add_file(*fs, private_cpp);
-
+    )");
   target_model::Target_data target_data;
-  target_data.interface_headers = {interface_hpp.path};
-  target_data.sources = {private_cpp.path};
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
 
-  std::filesystem::path cwd{"/"};
-  scanner::Compile_command compile_commands{cwd,
-                                            private_cpp.path,
-                                            std::vector<std::string>{"clang",
-                                                                     private_cpp.path}};
+  // EXPECT:
+  //   interface includes: a.hpp
+  //   includes:           a.hpp, b.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/a.hpp", {{"/interface.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}, {"/interface.hpp", 2}}},
+                 {"/b.hpp", {{"/private.cpp", 3}}}}};
 
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
-
-  auto result = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
-
-  REQUIRE(result.has_value() == true);
-  //dump(*result);
-
-  auto output = scanner::merge_includes({*result});
-  //dump(*output);
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
   REQUIRE(output.has_value() == true);
-
-  REQUIRE(output.has_value() == true);
-  REQUIRE(output->interface_includes.size() == 1);
-  REQUIRE(output->includes.size() == 2);
-
-  CHECK(output->interface_includes[0].path == a_hpp.path);
-  CHECK(output->includes[0].path == a_hpp.path);
-  CHECK(output->includes[1].path == b_hpp.path);
+  CHECK(expected == output->include_sets);
 }
 
-TEST_CASE("scanner: scan does not collect headers included transitively from non-source files",
-          "[scanner]")
+TEST_CASE("scanner: scan does not collect all transitive includes", "[scanner]")
 {
   message::configure(message::Color_output::never, message::Message_level::normal);
-  auto fs = llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
-    new llvm::vfs::InMemoryFileSystem};
 
-  // included from 3rdparty
-  Literal_file x_hpp{"/x.hpp", ""};
-  Literal_file y_hpp{"/y.hpp", ""};
-
-  // 3rdparty
-  Literal_file a_hpp{"/a.hpp", R"(
+  // Given:
+  //         private.cpp
+  //           ╱    ╲
+  //   interface.hpp ╲
+  //         ╱        ╲
+  //      a.hpp      b.hpp
+  //         ╲        ╱
+  //        x.hpp  y.hpp
+  //           ╲    ╱
+  //            z.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/x.hpp", R"(
+    #include "z.hpp"
+    )");
+  add_file(*fs, "/y.hpp", R"(
+    #include "z.hpp"
+    )");
+  add_file(*fs, "/z.hpp", R"(
+    #ifndef z_hpp_guard
+    #define z_hpp_guard
+    #endif
+    )");
+  add_file(*fs, "/a.hpp", R"(
     #include "x.hpp"
-    )"};
-  Literal_file b_hpp{"/b.hpp", R"(
+    )");
+  add_file(*fs, "/b.hpp", R"(
     #include "y.hpp"
-    )"};
-
-  // interface
-  Literal_file interface_hpp{"/interface.hpp", R"(
+    )");
+  add_file(*fs, "/interface.hpp", R"(
     #include "a.hpp"
-    )"};
-
-  // private
-  Literal_file private_cpp{"/private.cpp", R"(
+    )");
+  add_file(*fs, "/private.cpp", R"(
     #include "interface.hpp"
     #include "b.hpp"
-    )"};
-
-  add_file(*fs, x_hpp);
-  add_file(*fs, y_hpp);
-  add_file(*fs, a_hpp);
-  add_file(*fs, b_hpp);
-  add_file(*fs, interface_hpp);
-  add_file(*fs, private_cpp);
-
+    )");
   target_model::Target_data target_data;
-  target_data.interface_headers = {interface_hpp.path};
-  target_data.sources = {private_cpp.path};
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
 
-  std::filesystem::path cwd{"/"};
-  scanner::Compile_command compile_commands{cwd,
-                                            private_cpp.path,
-                                            std::vector<std::string>{"clang",
-                                                                     private_cpp.path}};
+  // Expect:
+  //   interface includes: a.hpp
+  //   includes:           a.hpp, b.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/a.hpp", {{"/interface.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}, {"/interface.hpp", 2}}},
+                 {"/b.hpp", {{"/private.cpp", 3}}}}};
 
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
-
-  auto result = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
-  REQUIRE(result.has_value() == true);
-  auto output = scanner::merge_includes({*result});
-
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
   REQUIRE(output.has_value() == true);
-  REQUIRE(output->interface_includes.size() == 1);
-  REQUIRE(output->includes.size() == 2);
-
-  CHECK(output->interface_includes[0].path == a_hpp.path);
-  CHECK(output->includes[0].path == a_hpp.path);
-  CHECK(output->includes[1].path == b_hpp.path);
+  CHECK(expected == output->include_sets);
 }
 
-TEST_CASE("scanner: scan collects headers included transitively from interface headers",
-          "[scanner]")
+TEST_CASE("scanner: scan collects tranitive interface includes", "[scanner]")
 {
   message::configure(message::Color_output::never, message::Message_level::normal);
-  auto fs = llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
-    new llvm::vfs::InMemoryFileSystem};
 
-  // 3rdparty
-  Literal_file a_hpp{"/a.hpp", ""};
-  Literal_file b_hpp{"/b.hpp", ""};
-  Literal_file c_hpp{"/c.hpp", ""};
-
-  // interface
-  Literal_file interface_1_hpp{"/interface_1.hpp", R"(
+  // Given:
+  //      private.cpp
+  //          │
+  //          │
+  //      interface_1.hpp
+  //       ╱     ╲
+  //      ╱       ╲
+  //   a.hpp  interface_2.hpp
+  //            ╱    ╲
+  //           ╱      ╲
+  //        b.hpp  interface_3.hpp
+  //                  ╱
+  //                 ╱
+  //              c.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/interface_1.hpp", R"(
     #include "a.hpp"
     #include "interface_2.hpp"
-    )"};
-  Literal_file interface_2_hpp{"/interface_2.hpp", R"(
+    )");
+  add_file(*fs, "/interface_2.hpp", R"(
     #include "b.hpp"
     #include "interface_3.hpp"
-    )"};
-  Literal_file interface_3_hpp{"/interface_3.hpp", R"(
+    )");
+  add_file(*fs, "/interface_3.hpp", R"(
     #include "c.hpp"
-    )"};
-
-  // private
-  Literal_file private_cpp{"/private.cpp", R"(
+    )");
+  add_file(*fs, "/private.cpp", R"(
     #include "interface_1.hpp"
-    )"};
-
-  add_file(*fs, a_hpp);
-  add_file(*fs, b_hpp);
-  add_file(*fs, c_hpp);
-  add_file(*fs, interface_1_hpp);
-  add_file(*fs, interface_2_hpp);
-  add_file(*fs, interface_3_hpp);
-  add_file(*fs, private_cpp);
-
+    )");
   target_model::Target_data target_data;
-  target_data.interface_headers = {interface_1_hpp.path,
-                                   interface_2_hpp.path,
-                                   interface_3_hpp.path};
-  target_data.sources = {private_cpp.path};
+  target_data.interface_headers = {"/interface_1.hpp", "/interface_2.hpp", "/interface_3.hpp"};
+  target_data.sources = {"/private.cpp"};
 
-  std::filesystem::path cwd{"/"};
-  scanner::Compile_command compile_commands{cwd,
-                                            private_cpp.path,
-                                            std::vector<std::string>{"clang",
-                                                                     private_cpp.path}};
+  // Expect:
+  //   dependencies:           a.hpp, b.hpp, c.hpp
+  //   interface dependencies: a.hpp, b.hpp, c.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/a.hpp", {{"/interface_1.hpp", 2}}},
+                           {"/b.hpp", {{"/interface_2.hpp", 2}}},
+                           {"/c.hpp", {{"/interface_3.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}, {"/interface_1.hpp", 2}}},
+                 {"/b.hpp",
+                  {{"/private.cpp", 2}, {"/interface_1.hpp", 3}, {"/interface_2.hpp", 2}}},
+                 {"/c.hpp",
+                  {{"/private.cpp", 2},
+                   {"/interface_1.hpp", 3},
+                   {"/interface_2.hpp", 3},
+                   {"/interface_3.hpp", 2}}}}};
 
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
-
-  auto result = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
-  REQUIRE(result.has_value() == true);
-  auto output = scanner::merge_includes({*result});
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
   REQUIRE(output.has_value() == true);
-
-  REQUIRE(output->interface_includes.size() == 3);
-  REQUIRE(output->includes.size() == 3);
-
-  CHECK(output->interface_includes[0].path == a_hpp.path);
-  CHECK(output->interface_includes[1].path == b_hpp.path);
-  CHECK(output->interface_includes[2].path == c_hpp.path);
-  CHECK(output->includes[0].path == a_hpp.path);
-  CHECK(output->includes[1].path == b_hpp.path);
-  CHECK(output->includes[2].path == c_hpp.path);
+  CHECK(expected == output->include_sets);
 }
 
-TEST_CASE("scanner: scan collects headers included transitively from private headers",
+TEST_CASE("scanner: scan collects transitive private includes", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //          private.cpp
+  //               │
+  //               │
+  //          private_1.hpp
+  //            ╱     ╲
+  //           ╱       ╲
+  //        a.hpp   private_2.hpp
+  //                  ╱    ╲
+  //                 ╱      ╲
+  //              b.hpp  private_3.hpp
+  //                       ╱
+  //                      ╱
+  //                   c.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/private.cpp", R"(
+    #include "private_1.hpp"
+    )");
+  add_file(*fs, "/private_1.hpp", R"(
+    #include "private_2.hpp"
+    #include "a.hpp"
+    )");
+  add_file(*fs, "/private_2.hpp", R"(
+    #include "private_3.hpp"
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/private_3.hpp", R"(
+    #include "c.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {};
+  target_data.sources = {"/private.cpp", "/private_1.hpp", "/private_2.hpp", "/private_3.hpp"};
+
+  // Expect:
+  //   dependencies:           a.hpp, b.hpp, and c.hpp
+  //   interface dependencies:
+  scanner::Include_sets expected{
+    .interface_includes = {},
+    .includes = {
+      {"/a.hpp", {{"/private.cpp", 2}, {"/private_1.hpp", 3}}},
+      {"/b.hpp", {{"/private.cpp", 2}, {"/private_1.hpp", 2}, {"/private_2.hpp", 3}}},
+      {"/c.hpp",
+       {{"/private.cpp", 2}, {"/private_1.hpp", 2}, {"/private_2.hpp", 2}, {"/private_3.hpp", 2}}},
+    }};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects interface includes externally included", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //   private.cpp
+  //        │
+  //      a.hpp
+  //        │
+  //   interface.hpp
+  //        │
+  //      b.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "interface.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/interface.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  // Expect:
+  //   dependencies: a.hpp
+  //   interface dependencies: b.hpp
+  scanner::Include_sets expected{.interface_includes = {{"/b.hpp", {{"/interface.hpp", 2}}}},
+                                 .includes = {{"/a.hpp", {{"/private.cpp", 2}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan does not collect private includes externally included", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // TODO: scan should produce an error when including private_1.hpp from a.hpp
+
+  // Given:
+  //   private.cpp
+  //        │
+  //      a.hpp
+  //        │
+  //   private_1.hpp
+  //        │
+  //      b.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "private_1.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/private_1.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {};
+  target_data.sources = {"/private.cpp", "/private_1.hpp"};
+
+  // Expect:
+  //   dependencies: a.hpp
+  //   interface dependencies:
+  scanner::Include_sets expected{.interface_includes = {},
+                                 .includes = {{"/a.hpp", {{"/private.cpp", 2}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects private includes previously externally included", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //    private.cpp
+  //       ╱   ╲
+  //      ╱     ╲
+  //   a.hpp   b.hpp
+  //     │
+  //   b.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/b.hpp", R"(
+    #ifndef b_hpp_guard
+    #define b_hpp_guard
+    #endif
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #include "b.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {};
+  target_data.sources = {"/private.cpp"};
+
+  // Expect:
+  //   interface includes:
+  //   includes:           a.hpp b.hpp
+  scanner::Include_sets expected{.interface_includes = {},
+                                 .includes = {{"/a.hpp", {{"/private.cpp", 2}}},
+                                              {"/b.hpp", {{"/private.cpp", 3}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects interface includes previously externally included",
+          "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::debug);
+
+  // Given:
+  //   private.cpp
+  //       ╱   ╲
+  //      ╱     ╲
+  //   a.hpp  interface.hpp
+  //      ╲     ╱
+  //       ╲   ╱
+  //       b.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/b.hpp", R"(
+    #ifndef b_hpp_guard
+    #define b_hpp_guard
+    #endif
+    )");
+  add_file(*fs, "/interface.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #include "interface.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  // Expect:
+  //   interface includes: b.hpp
+  //   includes:           a.hpp b.hpp
+  scanner::Include_sets expected{.interface_includes = {{"/b.hpp", {{"/interface.hpp", 2}}}},
+                                 .includes = {
+                                   {"/a.hpp", {{"/private.cpp", 2}}},
+                                   {"/b.hpp", {{"/private.cpp", 3}, {"/interface.hpp", 2}}},
+                                 }};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects interface includes previously privately included",
           "[scanner]")
 {
   message::configure(message::Color_output::never, message::Message_level::normal);
-  auto fs = llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
-    new llvm::vfs::InMemoryFileSystem};
 
-  // 3rdparty
-  Literal_file a_hpp{"/a.hpp", ""};
-  Literal_file b_hpp{"/b.hpp", ""};
-  Literal_file c_hpp{"/c.hpp", ""};
-
-  // interface
-  Literal_file interface_hpp{"/interface.hpp", ""};
-
-  // private
-  Literal_file private_cpp{"/private.cpp", R"(
-    #include "interface.hpp"
-    #include "private_1.hpp"
-    )"};
-  Literal_file private_1_hpp{"/private_1.hpp", R"(
-    #include "private_2.hpp"
+  // Given:
+  //   private.cpp
+  //      ╱   ╲
+  //     ╱     ╲
+  //     ╲    interface.hpp
+  //      ╲    ╱
+  //       ╲  ╱
+  //      a.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/interface.hpp", R"(
+    #ifndef interface_hpp_guard
+    #define interface_hpp_guard
     #include "a.hpp"
-    )"};
-  Literal_file private_2_hpp{"/private_2.hpp", R"(
-    #include "private_3.hpp"
-    #include "b.hpp"
-    )"};
-  Literal_file private_3_hpp{"/private_3.hpp", R"(
-    #include "c.hpp"
-    )"};
-
-  add_file(*fs, a_hpp);
-  add_file(*fs, b_hpp);
-  add_file(*fs, c_hpp);
-  add_file(*fs, interface_hpp);
-  add_file(*fs, private_cpp);
-  add_file(*fs, private_1_hpp);
-  add_file(*fs, private_2_hpp);
-  add_file(*fs, private_3_hpp);
-
+    #endif
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #include "interface.hpp"
+    )");
   target_model::Target_data target_data;
-  target_data.interface_headers = {interface_hpp.path};
-  target_data.sources = {private_cpp.path,
-                         private_1_hpp.path,
-                         private_2_hpp.path,
-                         private_3_hpp.path};
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
 
-  std::filesystem::path cwd{"/"};
-  scanner::Compile_command compile_commands{cwd,
-                                            private_cpp.path,
-                                            std::vector<std::string>{"clang",
-                                                                     private_cpp.path}};
+  // Expect:
+  //   interface includes: a.hpp
+  //   includes:           a.hpp
+  scanner::Include_sets expected{.interface_includes = {{"/a.hpp", {{"/interface.hpp", 4}}}},
+                                 .includes = {{"/a.hpp", {{"/private.cpp", 2}}}}};
 
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
-
-  auto result = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
-  REQUIRE(result.has_value() == true);
-  auto output = scanner::merge_includes({*result});
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
   REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
 
+TEST_CASE("scanner: scan collects transitive interface includes previously externally included",
+          "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //      private.cpp
+  //        ╱    ╲
+  //      a.hpp   ╲
+  //        ╲     ╱
+  //     interface_1.hpp
+  //       ╱     ╲
+  //      ╱       ╲
+  //   b.hpp  interface_2.hpp
+  //           ╱     ╲
+  //          ╱       ╲
+  //       c.hpp  interface_3.hpp
+  //                 ╱
+  //                ╱
+  //             d.hpp
+  //
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "interface_1.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/d.hpp", "");
+  add_file(*fs, "/interface_3.hpp", R"(
+    #include "d.hpp"
+    )");
+  add_file(*fs, "/interface_2.hpp", R"(
+    #include "c.hpp"
+    #include "interface_3.hpp"
+    )");
+  add_file(*fs, "/interface_1.hpp", R"(
+    #ifndef interface_1_hpp_guard
+    #define interface_1_hpp_guard
+    #include "b.hpp"
+    #include "interface_2.hpp"
+    #endif
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #include "interface_1.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface_1.hpp", "/interface_2.hpp", "/interface_3.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  // Expect:
+  //   interface includes: b.hpp c.hpp d.hpp
+  //   includes:           a.hpp b.hpp c.hpp d.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/b.hpp", {{"/interface_1.hpp", 4}}},
+                           {"/c.hpp", {{"/interface_2.hpp", 2}}},
+                           {"/d.hpp", {{"/interface_3.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}}},
+                 {"/b.hpp", {{"/private.cpp", 3}, {"/interface_1.hpp", 4}}},
+                 {"/c.hpp",
+                  {{"/private.cpp", 3}, {"/interface_1.hpp", 5}, {"/interface_2.hpp", 2}}},
+                 {"/d.hpp",
+                  {{"/private.cpp", 3},
+                   {"/interface_1.hpp", 5},
+                   {"/interface_2.hpp", 3},
+                   {"/interface_3.hpp", 2}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
   REQUIRE(output.has_value() == true);
-  REQUIRE(output->interface_includes.empty());
-  REQUIRE(output->includes.size() == 3);
+  CHECK(expected == output->include_sets);
+}
 
-  CHECK(output->includes[0].path == a_hpp.path);
-  CHECK(output->includes[1].path == b_hpp.path);
-  CHECK(output->includes[2].path == c_hpp.path);
+TEST_CASE("scanner: scan collects transitive interface includes previously externally included v2",
+          "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //      private.cpp
+  //        ╱    ╲
+  //     a.hpp    ╲
+  //       │       ╲
+  //       │   interface_1.hpp
+  //       │        │
+  //       │        │
+  //       │   interface_2.hpp
+  //       │       ╱
+  //       │      ╱
+  //     interface_3.hpp
+  //          │
+  //          │
+  //         b.hpp
+  //
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "interface_3.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/interface_3.hpp", R"(
+    #ifndef interface_3_hpp_guard
+    #define interface_3_hpp_guard
+    #include "b.hpp"
+    #endif
+    )");
+  add_file(*fs, "/interface_2.hpp", R"(
+    #include "interface_3.hpp"
+    )");
+  add_file(*fs, "/interface_1.hpp", R"(
+    #include "interface_2.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #include "interface_1.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface_1.hpp", "/interface_2.hpp", "/interface_3.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  // Expect:
+  //   interface includes: b.hpp
+  //   includes:           a.hpp b.hpp
+  scanner::Include_sets expected{.interface_includes = {{"/b.hpp", {{"/interface_3.hpp", 4}}}},
+                                 .includes = {{"/a.hpp", {{"/private.cpp", 2}}},
+                                              {"/b.hpp",
+                                               {{"/private.cpp", 3},
+                                                {"/interface_1.hpp", 2},
+                                                {"/interface_2.hpp", 2},
+                                                {"/interface_3.hpp", 4}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects transitive private includes previously externally included",
+          "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // TODO: scan should produce an error when including private_1.hpp from a.hpp
+
+  // Given:
+  //      private.cpp
+  //        ╱    ╲
+  //      a.hpp   ╲
+  //        ╲     ╱
+  //     private_1.hpp
+  //       ╱     ╲
+  //      ╱       ╲
+  //   b.hpp  private_2.hpp
+  //           ╱     ╲
+  //          ╱       ╲
+  //       c.hpp  private_3.hpp
+  //                 ╱
+  //                ╱
+  //             d.hpp
+  //
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "private_1.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/d.hpp", "");
+  add_file(*fs, "/private_3.hpp", R"(
+    #include "d.hpp"
+    )");
+  add_file(*fs, "/private_2.hpp", R"(
+    #include "c.hpp"
+    #include "private_3.hpp"
+    )");
+  add_file(*fs, "/private_1.hpp", R"(
+    #ifndef private_1_hpp_guard
+    #define private_1_hpp_guard
+    #include "b.hpp"
+    #include "private_2.hpp"
+    #endif
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #include "private_1.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {};
+  target_data.sources = {"/private.cpp", "/private_1.hpp", "/private_2.hpp", "/private_3.hpp"};
+
+  // Expect:
+  //   interface includes: b.hpp c.hpp d.hpp
+  //   includes:           a.hpp b.hpp c.hpp d.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}}},
+                 {"/b.hpp", {{"/private.cpp", 3}, {"/private_1.hpp", 4}}},
+                 {"/c.hpp",
+                  {{"/private.cpp", 3}, {"/private_1.hpp", 5}, {"/private_2.hpp", 2}}},
+                 {"/d.hpp",
+                  {{"/private.cpp", 3},
+                   {"/private_1.hpp", 5},
+                   {"/private_2.hpp", 3},
+                   {"/private_3.hpp", 2}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects transitive interface includes through a so-called private header",
+          "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // TODO: scan should produce an error when including private_1.hpp from interface_1.hpp
+
+  // Given:
+  //      private.cpp
+  //          │
+  //          │
+  //      interface_1.hpp
+  //       ╱     ╲
+  //      ╱       ╲
+  //   a.hpp  private_1.hpp
+  //            ╱    ╲
+  //           ╱      ╲
+  //        b.hpp   private_2.hpp
+  //                  ╱
+  //                 ╱
+  //              c.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/interface_1.hpp", R"(
+    #include "a.hpp"
+    #include "private_1.hpp"
+    )");
+  add_file(*fs, "/private_1.hpp", R"(
+    #include "b.hpp"
+    #include "private_2.hpp"
+    )");
+  add_file(*fs, "/private_2.hpp", R"(
+    #include "c.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "interface_1.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface_1.hpp"};
+  target_data.sources = {"/private.cpp", "/private_1.hpp", "/private_2.hpp"};
+
+  // Expect:
+  //   dependencies:           a.hpp, b.hpp, c.hpp
+  //   interface dependencies: a.hpp, b.hpp, c.hpp
+  scanner::Include_sets expected{
+    .interface_includes =
+      {{"/a.hpp", {{"/interface_1.hpp", 2}}},
+       {"/b.hpp", {{"/interface_1.hpp", 3}, {"/private_1.hpp", 2}}},
+       {"/c.hpp", {{"/interface_1.hpp", 3}, {"/private_1.hpp", 3}, {"/private_2.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}, {"/interface_1.hpp", 2}}},
+                 {"/b.hpp",
+                  {{"/private.cpp", 2}, {"/interface_1.hpp", 3}, {"/private_1.hpp", 2}}},
+                 {"/c.hpp",
+                  {{"/private.cpp", 2},
+                   {"/interface_1.hpp", 3},
+                   {"/private_1.hpp", 3},
+                   {"/private_2.hpp", 2}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan sees all dependencies from a file included in multiple contexts",
+          "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //           private.cpp
+  //             ╱    ╲
+  //          a.hpp    ╲
+  //           ╱        ╲
+  //   interface.hpp   interface.hpp
+  //          │          │
+  //        b.hpp      c.hpp
+  // Where:
+  //   interface.hpp does not have include guards and has different dependencies based on preprocessor definitions
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #ifndef a_hpp_guard
+    #define a_hpp_guard
+    #include "interface.hpp"
+    #endif
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/interface.hpp", R"(
+    #ifdef INTERNAL
+    #  include "c.hpp"
+    #else
+    #  include "b.hpp"
+    #endif
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "a.hpp"
+    #define INTERNAL 1
+    #include "interface.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  // Probabal Expectation (TODO: is support for this possible?):
+  //   interface includes: b.hpp
+  //   includes:           a.hpp c.hpp
+  //
+  // Current behavior:
+  //   interface includes: b.hpp c.hpp
+  //   includes:           a.hpp b.hpp c.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/b.hpp", {{"/interface.hpp", 5}}},
+                           {"/c.hpp", {{"/interface.hpp", 3}}}},
+    .includes = {{"/a.hpp", {{"/private.cpp", 2}}},
+                 {"/b.hpp", {{"/private.cpp", 4}, {"/interface.hpp", 5}}},
+                 {"/c.hpp", {{"/private.cpp", 4}, {"/interface.hpp", 3}}}}};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects interface headers when main file is external", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //   generated.cpp
+  //        │
+  //   interface.hpp
+  //      ╱    ╲
+  //   a.hpp  b.hpp
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/interface.hpp", R"(
+    #include "a.hpp"
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/generated.cpp", R"(
+    #include "interface.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {};
+
+  // Expect:
+  //   dependencies:
+  //   interface dependencies: a.hpp, b.hpp
+  scanner::Include_sets expected{.interface_includes = {{"/a.hpp", {{"/interface.hpp", 2}}},
+                                                        {"/b.hpp", {{"/interface.hpp", 3}}}},
+                                 .includes = {}};
+
+  scanner::Compile_command compile_commands{"/", "/generated.cpp", {"clang", "/generated.cpp"}};
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
 }
 
 TEST_CASE("scanner: scan can distinguish private sources in the interface include directory",
           "[scanner]")
 {
   message::configure(message::Color_output::never, message::Message_level::normal);
-  auto fs = llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem>{
-    new llvm::vfs::InMemoryFileSystem};
 
-  // 3rdparty
-  Literal_file a_hpp{"/opt/a.hpp", ""};
-  Literal_file b_hpp{"/opt/b.hpp", ""};
+  // GIVEN:
+  //         private.cpp
+  //           ╱     ╲
+  //   interface.hpp  ╲
+  //         ╱         ╲
+  //      a.hpp       b.hpp
 
-  // interface
-  Literal_file interface_hpp{"/src/interface.hpp", R"(
+  auto fs = make_file_system();
+  add_file(*fs, "/opt/a.hpp", "");
+  add_file(*fs, "/opt/b.hpp", "");
+  add_file(*fs, "/src/interface.hpp", R"(
     #include "a.hpp"
-    )"};
-
-  // private
-  Literal_file private_cpp{"/src/private.cpp", R"(
+    )");
+  add_file(*fs, "/src/private.cpp", R"(
     #include "interface.hpp"
     #include "b.hpp"
-    )"};
-
-  add_file(*fs, a_hpp);
-  add_file(*fs, b_hpp);
-  add_file(*fs, interface_hpp);
-  add_file(*fs, private_cpp);
-
+    )");
   target_model::Target_data target_data;
-  target_data.interface_headers = {interface_hpp.path};
+  target_data.interface_headers = {"/src/interface.hpp"};
   target_data.interface_include_directories = {"/src"};
-  target_data.sources = {private_cpp.path};
+  target_data.sources = {"/src/private.cpp"};
 
-  std::filesystem::path cwd{"/"};
-  scanner::Compile_command compile_commands{
-    cwd,
-    private_cpp.path,
-    std::vector<std::string>{"clang", "-I/src", "-I/opt", private_cpp.path}};
+  // EXPECT:
+  //   interface includes: a.hpp
+  //   includes:           a.hpp, b.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/opt/a.hpp", {{"/src/interface.hpp", 2}}}},
+    .includes = {{"/opt/a.hpp", {{"/src/private.cpp", 2}, {"/src/interface.hpp", 2}}},
+                 {"/opt/b.hpp", {{"/src/private.cpp", 3}}}}};
 
+  scanner::Compile_command compile_commands{"/",
+                                            "/src/private.cpp",
+                                            {"clang", "-I/src", "-I/opt", "/src/private.cpp"}};
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
-
-  auto result = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
-
-  REQUIRE(result.has_value() == true);
-  //dump(*result);
-
-  auto output = scanner::merge_includes({*result});
-  //dump(*output);
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
   REQUIRE(output.has_value() == true);
-
-  REQUIRE(output.has_value() == true);
-  REQUIRE(output->interface_includes.size() == 1);
-  REQUIRE(output->includes.size() == 2);
-
-  CHECK(output->interface_includes[0].path == a_hpp.path);
-  CHECK(output->includes[0].path == a_hpp.path);
-  CHECK(output->includes[1].path == b_hpp.path);
+  CHECK(expected == output->include_sets);
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers)

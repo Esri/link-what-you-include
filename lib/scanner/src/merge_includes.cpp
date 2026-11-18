@@ -4,21 +4,19 @@
 #include <src/merge_includes.hpp>
 
 #include <scanner/scan.hpp>
-#include <src/scan_impl.hpp>
+#include <src/include_sets.hpp>
 
 #include <expected>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace scanner
 {
 std::expected<Intransitive_includes, std::string> merge_includes(
-  std::vector<std::expected<Include_data, std::string>> include_data_array)
+  std::vector<std::expected<Include_sets, std::string>> include_sets_array)
 {
-  Include_set interface_includes;
-  Include_set includes;
-  for (auto& eincdata : include_data_array)
+  Include_sets include_sets;
+  for (auto& eincdata : include_sets_array)
   {
     if (!eincdata.has_value())
     {
@@ -26,18 +24,17 @@ std::expected<Intransitive_includes, std::string> merge_includes(
       return std::unexpected(eincdata.error());
     }
 
-    includes.merge(eincdata->includes);
-    for (auto& includes : eincdata->interface_header_includes)
-    {
-      interface_includes.merge(includes.second);
-    }
+    include_sets.includes.merge(eincdata->includes);
+    include_sets.interface_includes.merge(eincdata->interface_includes);
   }
 
   Intransitive_includes output;
   output.interface_includes.insert(output.interface_includes.begin(),
-                                   interface_includes.begin(),
-                                   interface_includes.end());
-  output.includes.insert(output.includes.begin(), includes.begin(), includes.end());
+                                   include_sets.interface_includes.begin(),
+                                   include_sets.interface_includes.end());
+  output.includes.insert(output.includes.begin(),
+                         include_sets.includes.begin(),
+                         include_sets.includes.end());
 
   return output;
 }

@@ -5,6 +5,7 @@
 
 #include <message/message.hpp>
 #include <scanner/include.hpp>
+#include <src/include_sets.hpp>
 #include <target_model/target_data.hpp>
 
 #include <clang/Basic/Diagnostic.h>
@@ -35,9 +36,11 @@
 #include <filesystem>
 #include <format>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -53,25 +56,109 @@ std::filesystem::path to_normal_path(const std::string& path)
   return std::filesystem::path(path).lexically_normal().generic_string();
 }
 
+enum class Context : uint8_t
+{
+  external_file,
+  private_file,
+  interface_file
+};
+
+std::string_view to_string(Context context)
+{
+  switch (context)
+  {
+    case Context::interface_file:
+      return "interface";
+    case Context::private_file:
+      return "private";
+    case Context::external_file:
+      return "external";
+  }
+  std::unreachable();
+}
+
 class PPRecorder : public clang::PPCallbacks
 {
   const clang::Preprocessor& preprocessor_;
   Include_data& include_data_;
   const target_model::Target_data& target_data_;
 
-  clang::FileID initial_fid_;
   Source_line last_include_loc_;
   std::vector<Source_line> include_chain_;
   std::filesystem::path current_source_file_;
-  Include_set* current_include_set_{nullptr};
+  Context context_{Context::external_file};
+  bool in_system_ = false;
 
-  enum class Context : uint8_t
+  std::map<std::filesystem::path, Include_set> header_include_sets_;
+
+  void try_add_dependency_(const std::filesystem::path& source,
+                           Context context,
+                           const std::filesystem::path& include,
+                           Context include_context)
   {
-    arbitrary_file,
-    source_file,
-    interface_header
-  };
-  Context context_{Context::arbitrary_file};
+    if (include_context == Context::external_file)
+    {
+      if (context == Context::interface_file)
+      {
+        assert(!last_include_loc_.source.empty());
+        if (include_data_.include_sets.interface_includes
+              .emplace(include, std::vector<Source_line>{last_include_loc_})
+              .second)
+        {
+          message::debug("Interface dependency added: {}", include.string());
+        }
+      }
+
+      if (auto it = header_include_sets_.find(source); it != header_include_sets_.end())
+      {
+        if (it->second.emplace(include, std::vector<Source_line>{last_include_loc_}).second)
+        {
+          message::debug("File dependency added to {}: {}", source.string(), include.string());
+        }
+      }
+    }
+  }
+
+  void try_propagate_dependencies_(const Source_line& include_location,
+                                   const std::filesystem::path& to_source,
+                                   Context to_context,
+                                   const std::filesystem::path& from_source,
+                                   Context from_context)
+  {
+    if (from_context == Context::external_file || to_context == Context::external_file)
+    {
+      return;
+    }
+
+    auto from_it = header_include_sets_.find(from_source);
+    auto to_it = header_include_sets_.find(to_source);
+    if (from_it == header_include_sets_.end() || to_it == header_include_sets_.end())
+    {
+      return;
+    }
+
+    message::debug("Dependency propagation from {} to {}",
+                   from_source.string(),
+                   to_source.string());
+
+    for (const Include& include : from_it->second)
+    {
+      std::vector<Source_line> include_chain;
+      include_chain.emplace_back(include_location);
+      include_chain.insert(include_chain.end(),
+                           include.include_chain.begin(),
+                           include.include_chain.end());
+      to_it->second.emplace(include.path, include_chain);
+
+      if (to_context == Context::interface_file &&
+          include_data_.include_sets.interface_includes
+            .emplace(include.path, include_chain)
+            .second)
+      {
+        message::debug("Interface dependency added: {}", to_source.string());
+      }
+    }
+  }
 
 public:
   PPRecorder(const clang::Preprocessor& preprocessor,
@@ -91,26 +178,21 @@ public:
 
   void LexedFileChanged(clang::FileID fid,
                         LexedFileChangeReason reason,
-                        clang::SrcMgr::CharacteristicKind /*file_type*/,
+                        clang::SrcMgr::CharacteristicKind file_type,
                         clang::FileID prev_fid,
                         clang::SourceLocation /*loc*/) override
   {
+    // ignore predefines file
     if ((reason == LexedFileChangeReason::EnterFile &&
          fid == preprocessor_.getPredefinesFileID()) ||
         (reason == LexedFileChangeReason::ExitFile &&
          prev_fid == preprocessor_.getPredefinesFileID()))
     {
-      context_ = Context::arbitrary_file;
       return;
     }
 
-    assert(fid.isValid());
-
-    if (initial_fid_.isInvalid())
-    {
-      initial_fid_ = fid;
-    }
-
+    // current file
+    const auto previous_source_file = current_source_file_;
     if (auto file_entry_ref = preprocessor_.getSourceManager().getFileEntryRefForID(fid);
         file_entry_ref.has_value())
     {
@@ -119,146 +201,132 @@ public:
     else
     {
       assert(!"We expect to always get a valid file entry ref");
-      context_ = Context::arbitrary_file;
+      context_ = Context::external_file;
       return;
     }
 
+    // context
     const auto previous_context = context_;
-    const auto previous_include_set = current_include_set_;
-
-    if (fid != initial_fid_ &&
-        target_model::is_interface_header(target_data_, current_source_file_))
+    const bool previous_in_system = in_system_;
+    in_system_ = clang::SrcMgr::isSystem(file_type);
+    const bool in_main = (fid == preprocessor_.getSourceManager().getMainFileID());
+    if (!in_main && target_model::is_interface_header(target_data_, current_source_file_))
     {
-      context_ = Context::interface_header;
-      current_include_set_ = &include_data_.interface_header_includes[current_source_file_];
+      context_ = Context::interface_file;
     }
     else if (target_model::is_private_source(target_data_, current_source_file_))
     {
-      context_ = Context::source_file;
-      current_include_set_ = &include_data_.includes;
+      context_ = Context::private_file;
     }
     else
     {
-      context_ = Context::arbitrary_file;
-      current_include_set_ = nullptr;
+      context_ = Context::external_file;
     }
 
-    message::debug(
-      "{} {} {} ({})",
-      (reason == LexedFileChangeReason::ExitFile ? "Reenter" : "Enter"),
-      [&]()
-      {
-        switch (context_)
-        {
-          case Context::interface_header:
-            return "interface header";
-          case Context::source_file:
-            return "source";
-          case Context::arbitrary_file:
-            return "arbitrary file";
-        }
-        std::unreachable();
-      }(),
-      current_source_file_.string(),
-      fid.getHashValue());
+    if (!previous_in_system || !in_system_)
+    {
+      message::debug("{} {} {} ({})",
+                     reason == LexedFileChangeReason::EnterFile ? "Enter" : "Reenter",
+                     to_string(context_),
+                     current_source_file_.string(),
+                     fid.getHashValue());
+    }
 
     if (reason == LexedFileChangeReason::EnterFile)
     {
       if (!last_include_loc_.source.empty())
       {
-        message::debug("Push include chain {}:{}", last_include_loc_.source.string(), last_include_loc_.line);
         include_chain_.emplace_back(last_include_loc_);
       }
-
-      if (previous_include_set && context_ == Context::arbitrary_file)
+      if (context_ != Context::external_file)
       {
-        message::debug("Dependency added to previous context: {} ({})",
-                       current_source_file_.string(),
-                       static_cast<const void*>(previous_include_set));
-        previous_include_set->emplace(Include{current_source_file_, include_chain_});
+        header_include_sets_.try_emplace(current_source_file_);
       }
+      try_add_dependency_(previous_source_file, previous_context, current_source_file_, context_);
     }
     else
     {
-      if (!include_chain_.empty())
-      {
-        message::debug("Pop include chain {}:{}", include_chain_.back().source.string(), include_chain_.back().line);
-        include_chain_.pop_back();
-      }
-
-      if (previous_context == Context::interface_header && context_ != Context::arbitrary_file)
-      {
-        message::debug("Dependency propagation");
-        // propagate includes
-        for (const auto& e : *previous_include_set)
-        {
-          message::debug("Dependency added to current context: {} ({})",
-                         e.path.string(),
-                         static_cast<const void*>(current_include_set_));
-          current_include_set_->insert(e);
-        }
-      }
+      assert(!include_chain_.empty());
+      try_propagate_dependencies_(include_chain_.back(),
+                                  current_source_file_,
+                                  context_,
+                                  previous_source_file,
+                                  previous_context);
+      include_chain_.pop_back();
     }
   }
 
   void InclusionDirective(clang::SourceLocation include_loc,
                           const clang::Token& /*token*/,
-                          clang::StringRef /*spelled_filename*/,
-                          bool /*is_angled*/,
+                          clang::StringRef spelled_filename,
+                          bool is_angled,
                           clang::CharSourceRange /*filename_range*/,
                           clang::OptionalFileEntryRef /*file*/,
                           clang::StringRef /*searchPath*/,
                           clang::StringRef /*relativePath*/,
                           const clang::Module* /*imported*/,
-                          clang::SrcMgr::CharacteristicKind /*fileType*/) override
+                          clang::SrcMgr::CharacteristicKind /*file_type*/) override
   {
     auto presumed_loc = preprocessor_.getSourceManager().getPresumedLoc(include_loc);
     assert(presumed_loc.isValid());
     assert(current_source_file_ == to_normal_path(presumed_loc.getFilename()));
     last_include_loc_ = Source_line{current_source_file_, presumed_loc.getLine()};
+
+    if (!in_system_)
+    {
+      message::debug("Include {}{}{} at {}:{}",
+                     is_angled ? '<' : '"',
+                     spelled_filename.str(),
+                     is_angled ? '>' : '"',
+                     last_include_loc_.source.string(),
+                     last_include_loc_.line);
+    }
   }
 
   void FileSkipped(const clang::FileEntryRef& file,
                    const clang::Token& /*filename_tok*/,
                    clang::SrcMgr::CharacteristicKind /*file_type*/) override
   {
-    const auto filename = to_normal_path(file.getNameAsRequested().str());
-
-    message::debug("file skipped: {}", filename.string());
-
-    if (context_ == Context::arbitrary_file)
+    if (context_ == Context::external_file)
     {
       return;
     }
 
-    if (target_model::is_interface_header(target_data_, filename) ||
-        target_model::is_private_source(target_data_, filename))
+    const auto skipped_filename = to_normal_path(file.getNameAsRequested().str());
+
+    message::debug("File skipped: {}", skipped_filename.string());
+
+    Context skipped_context = Context::external_file;
+    if (target_model::is_interface_header(target_data_, skipped_filename))
     {
-      if (auto it = include_data_.interface_header_includes.find(filename);
-          it != include_data_.interface_header_includes.end())
-      {
-        message::debug("Dependency propagation");
-        // propagate includes
-        for (const auto& e : it->second)
-        {
-          message::debug("Dependency added: {} ({})",
-                         e.path.string(),
-                         static_cast<const void*>(current_include_set_));
-          current_include_set_->insert(e);
-        }
-      }
+      skipped_context = Context::interface_file;
     }
-    else
+    else if (target_model::is_private_source(target_data_, skipped_filename))
     {
-      message::debug("Dependency added: {} ({})",
-                     filename.string(),
-                     static_cast<const void*>(current_include_set_));
-      auto include_chain = include_chain_;
-      if (!last_include_loc_.source.empty())
+      skipped_context = Context::private_file;
+    }
+
+    try_add_dependency_(current_source_file_, context_, skipped_filename, skipped_context);
+    try_propagate_dependencies_(last_include_loc_,
+                                current_source_file_,
+                                context_,
+                                skipped_filename,
+                                skipped_context);
+  }
+
+  void EndOfMainFile() override
+  {
+    const auto main_fid = preprocessor_.getSourceManager().getMainFileID();
+    if (auto main_file_entry_ref =
+          preprocessor_.getSourceManager().getFileEntryRefForID(main_fid);
+        main_file_entry_ref.has_value())
+    {
+      auto main_file = to_normal_path(main_file_entry_ref->getNameAsRequested().str());
+      if (auto it = header_include_sets_.find(main_file); it != header_include_sets_.end())
       {
-        include_chain.emplace_back(last_include_loc_);
+        message::debug("Private dependency propagation from {}", main_file.string());
+        include_data_.include_sets.includes.swap(it->second);
       }
-      current_include_set_->emplace(Include{filename, std::move(include_chain)});
     }
   }
 };

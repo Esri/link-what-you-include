@@ -466,7 +466,8 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
         else
         {
           simdjson::ondemand::value file_set_index_field;
-          if (auto error = source.find_field_unordered("fileSetIndex").get(file_set_index_field);
+          if (auto error =
+                source.find_field_unordered("fileSetIndex").get(file_set_index_field);
               error != simdjson::NO_SUCH_FIELD)
           {
             if (error)
@@ -530,7 +531,8 @@ std::expected<Target_info, std::string> read_target(const std::filesystem::path&
   if (version.supports(Codemodel_feature::interface_includes))
   {
     simdjson::ondemand::value interface_includes_field;
-    if (auto error = root.find_field_unordered("interfaceIncludes").get(interface_includes_field);
+    if (auto error =
+          root.find_field_unordered("interfaceIncludes").get(interface_includes_field);
         error != simdjson::NO_SUCH_FIELD)
     {
       if (error)
@@ -780,7 +782,8 @@ std::expected<std::map<Target, Target_data>, std::string> load_file_api_targets(
 
   for (const auto& [id, json_file] : target_id_to_json)
   {
-    auto target_info = read_target(reply_dir, file_loader, parser, json_file, codemodel_version);
+    auto target_info =
+      read_target(reply_dir, file_loader, parser, json_file, codemodel_version);
     if (!target_info.has_value())
     {
       return std::unexpected(target_info.error());
