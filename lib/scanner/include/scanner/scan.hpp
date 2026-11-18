@@ -23,6 +23,8 @@ struct Intransitive_includes
 {
   std::vector<Include> interface_includes;
   std::vector<Include> includes;
+
+  bool operator==(const Intransitive_includes&) const = default;
 };
 
 class Scanner

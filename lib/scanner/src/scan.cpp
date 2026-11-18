@@ -6,6 +6,7 @@
 #include <message/message.hpp>
 #include <relative_resource_dir.hpp>
 #include <src/executable_path.hpp>
+#include <src/include_sets.hpp>
 #include <src/merge_includes.hpp>
 #include <src/scan_impl.hpp>
 #include <target_model/target_data.hpp>
@@ -131,18 +132,23 @@ std::expected<Intransitive_includes, std::string> Scanner::scan(
 
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
 
-  std::vector<std::expected<Include_data, std::string>> include_data_array(
+  std::vector<std::expected<Include_sets, std::string>> include_sets_array(
     compile_commands.size());
 
   impl_->transformer.transform(
     compile_commands.begin(),
     compile_commands.end(),
-    include_data_array.begin(),
-    [&](const Compile_command& compile_command) -> std::expected<Include_data, std::string>
+    include_sets_array.begin(),
+    [&](const Compile_command& compile_command)
     {
       auto file_system = llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>{
         llvm::vfs::createPhysicalFileSystem()};
-      return scan_impl(file_system, dep_cache, target_data, compile_command);
+      return scan_impl(file_system, dep_cache, target_data, compile_command)
+        .transform(
+          [](const Include_data& include_data)
+          {
+            return include_data.include_sets;
+          });
     });
 
   if (message::verbose_enabled())
@@ -155,6 +161,6 @@ std::expected<Intransitive_includes, std::string> Scanner::scan(
     }
   }
 
-  return merge_includes(include_data_array);
+  return merge_includes(include_sets_array);
 }
 } // namespace scanner
