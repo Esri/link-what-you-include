@@ -89,7 +89,7 @@ std::vector<LWYI_error> check_target(const lwyi::Config& config,
     }
 
     // when not pedantic, allow interface including with public linking
-    if (!config.get_global_config().pedantic &&
+    if (!config.pedantic &&
         visibility.included_scope == Dependency_scope::interface_scope &&
         visibility.linked_scope == Dependency_scope::public_scope)
     {
@@ -98,12 +98,8 @@ std::vector<LWYI_error> check_target(const lwyi::Config& config,
 
     const auto& dep_config = config.get_target_config(dep);
 
-    const bool allow_over_include = target_config.allow_includes_set.contains(dep) ||
-                                    target_config.allow_includes ||
-                                    dep_config.interface_allow_includes;
-    const bool allow_over_link = target_config.allow_links_set.contains(dep) ||
-                                 target_config.allow_links ||
-                                 dep_config.interface_allow_links;
+    const bool allow_over_include = target_config.may_include_without_linking(dep, dep_config);
+    const bool allow_over_link = target_config.may_link_without_including(dep, dep_config);
     const auto over_include_scope = visibility.included_scope & ~visibility.linked_scope;
     const auto over_link_scope = visibility.linked_scope & ~visibility.included_scope;
     const bool over_include = !!over_include_scope;

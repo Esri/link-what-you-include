@@ -5,12 +5,11 @@
 
 #include <tidy/config.hpp>
 
-#include <simdjson.h>
-
 #include <expected>
 #include <string>
+#include <string_view>
 
 namespace tidy
 {
-std::expected<Config, std::string> load_config_impl(const simdjson::padded_string& raw_config);
+std::expected<Config, std::string> load_config_impl(std::string_view raw_config);
 }

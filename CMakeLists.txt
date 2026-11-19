@@ -105,6 +105,7 @@ endif()
 ## subdirectories
 
 add_subdirectory(lib/cli)
+add_subdirectory(lib/json)
 add_subdirectory(lib/message)
 add_subdirectory(lib/lwyi)
 add_subdirectory(lib/scanner)

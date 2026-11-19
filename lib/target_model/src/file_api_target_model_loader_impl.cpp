@@ -3,21 +3,19 @@
 
 #include <src/file_api_target_model_loader_impl.hpp>
 
-#include <src/file_loader.hpp>
-#include <src/real_file_loader.hpp>
+#include <json/json_utils.hpp>
 #include <target_model/target.hpp>
 #include <target_model/target_data.hpp>
 #include <target_model/target_model.hpp>
 #include <target_model/target_model_loader.hpp>
 
-#include <simdjson.h>
-
-#include <cassert>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <format>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -32,7 +30,14 @@ namespace target_model
 {
 namespace
 {
+// ---------------------------------------------------------------------------
+// The parts of the CMake File API codemodel-v2 reply that lwyi reads. Each
+// struct mirrors a JSON object. Fields not listed are ignored.
+// ---------------------------------------------------------------------------
 
+constexpr uint64_t no_index = std::numeric_limits<uint64_t>::max();
+
+// Fields that only newer codemodel versions provide.
 enum class Codemodel_feature : uint8_t
 {
   file_set_indexes,
@@ -41,8 +46,8 @@ enum class Codemodel_feature : uint8_t
 
 struct Codemodel_version
 {
-  uint64_t major;
-  uint64_t minor;
+  uint64_t major{0};
+  uint64_t minor{0};
 
   constexpr auto operator<=>(const Codemodel_version&) const = default;
 
@@ -63,25 +68,63 @@ struct Codemodel_version
 
 constexpr Codemodel_version FILE_API_VERSION_REQUIRED{2, 10};
 
-struct Target_info
+struct Paths
+{
+  std::string source;
+};
+
+struct Target_reference
 {
   std::string id;
   std::string name;
+  std::string json_file;
+};
+
+struct Configuration
+{
+  std::vector<Target_reference> targets;
+  std::vector<Target_reference> abstract_targets;
+};
+
+struct Codemodel
+{
+  Codemodel_version version;
+  Paths paths;
+  std::vector<Configuration> configurations;
+};
+
+struct File_set
+{
   std::string type;
-  bool imported{false};
-  std::unordered_set<std::filesystem::path> sources;
-  std::unordered_set<std::filesystem::path> public_headers;
-  std::vector<std::filesystem::path> include_dirs;
-  std::unordered_set<std::string> dependencies;
-  std::unordered_set<std::string> interface_dependencies;
-  std::map<std::string, Source_location> dep_locations;
+  std::string visibility;
+};
+
+// Codemodel 2.11 replaced a source's single `fileSetIndex` with
+// `fileSetIndexes`; both are read, and file_set_indexes_of() picks by version.
+struct Source
+{
+  std::string path;
+  uint64_t file_set_index{no_index};
+  std::vector<uint64_t> file_set_indexes;
+};
+
+// Codemodel 2.12+.
+struct Interface_include
+{
+  std::string path;
+};
+
+struct Dependency
+{
+  std::string id;
+  uint64_t backtrace{no_index};
 };
 
 struct Backtrace_node
 {
-  std::optional<uint64_t> parent;
-  std::optional<uint64_t> file;
-  size_t line{0U};
+  uint64_t file{no_index};
+  uint64_t line{0};
+  uint64_t parent{no_index};
 };
 
 struct Backtrace_graph
@@ -90,104 +133,93 @@ struct Backtrace_graph
   std::vector<Backtrace_node> nodes;
 };
 
-std::expected<Backtrace_graph, std::string> parse_backtrace_graph(
-  simdjson::ondemand::object& graph,
-  std::string_view object_context)
+struct Target_reply
 {
-  Backtrace_graph result;
+  std::string id;
+  std::string name;
+  std::string type;
+  bool imported{false};
+  std::vector<File_set> file_sets;
+  std::vector<Source> sources;
+  std::vector<Source> interface_sources;
+  std::vector<Interface_include> interface_includes;
+  Backtrace_graph backtrace_graph;
+  std::vector<Dependency> compile_dependencies;
+  std::vector<Dependency> interface_compile_dependencies;
+};
 
-  simdjson::ondemand::array files;
-  if (auto error = graph.find_field_unordered("files").get_array().get(files))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  for (auto file : files)
-  {
-    std::string_view path;
-    if (auto error = file.get(path))
-    {
-      return std::unexpected(std::format("while reading {}.files: {}",
-                                         object_context,
-                                         simdjson::error_message(error)));
-    }
-    result.files.emplace_back(path);
-  }
+auto codemodel_schema()
+{
+  using json::optional;
+  using json::partial_object;
+  using json::required;
 
-  simdjson::ondemand::array nodes;
-  if (auto error = graph.find_field_unordered("nodes").get_array().get(nodes))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  for (auto node : nodes)
-  {
-    simdjson::ondemand::object node_object;
-    if (auto error = node.get_object().get(node_object))
-    {
-      return std::unexpected(std::format("while reading {}.nodes: {}",
-                                         object_context,
-                                         simdjson::error_message(error)));
-    }
+  const auto target_reference = partial_object<Target_reference>(
+    required("id", &Target_reference::id),
+    required("name", &Target_reference::name),
+    required("jsonFile", &Target_reference::json_file));
 
-    Backtrace_node backtrace_node;
-    simdjson::ondemand::value parent_field;
-    if (auto error = node_object.find_field_unordered("parent").get(parent_field))
-    {
-      if (error != simdjson::NO_SUCH_FIELD)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-    }
-    else
-    {
-      uint64_t parent = 0U;
-      if (auto error = parent_field.get_uint64().get(parent))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-      backtrace_node.parent = parent;
-    }
-
-    simdjson::ondemand::value file_field;
-    if (auto error = node_object.find_field_unordered("file").get(file_field))
-    {
-      if (error != simdjson::NO_SUCH_FIELD)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-    }
-    else
-    {
-      uint64_t file = 0U;
-      if (auto error = file_field.get_uint64().get(file))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-      backtrace_node.file = file;
-    }
-
-    simdjson::ondemand::value line_field;
-    if (auto error = node_object.find_field_unordered("line").get(line_field))
-    {
-      if (error != simdjson::NO_SUCH_FIELD)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-    }
-    else
-    {
-      uint64_t line = 0U;
-      if (auto error = line_field.get_uint64().get(line))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-      backtrace_node.line = static_cast<size_t>(line);
-    }
-
-    result.nodes.push_back(backtrace_node);
-  }
-
-  return result;
+  return partial_object<Codemodel>(
+    required("version",
+             &Codemodel::version,
+             partial_object<Codemodel_version>(required("major", &Codemodel_version::major),
+                                               required("minor", &Codemodel_version::minor))),
+    required("paths", &Codemodel::paths, partial_object<Paths>(required("source", &Paths::source))),
+    required("configurations",
+             &Codemodel::configurations,
+             json::array(partial_object<Configuration>(
+               required("targets", &Configuration::targets, json::array(target_reference)),
+               optional("abstractTargets",
+                        &Configuration::abstract_targets,
+                        json::array(target_reference))))));
 }
+
+auto target_schema()
+{
+  using json::optional;
+  using json::partial_object;
+  using json::required;
+
+  const auto source = partial_object<Source>(
+    required("path", &Source::path),
+    optional("fileSetIndex", &Source::file_set_index),
+    optional("fileSetIndexes", &Source::file_set_indexes, json::array(json::value<uint64_t>())));
+  const auto dependency = partial_object<Dependency>(required("id", &Dependency::id),
+                                                     optional("backtrace", &Dependency::backtrace));
+
+  return partial_object<Target_reply>(
+    required("id", &Target_reply::id),
+    required("name", &Target_reply::name),
+    required("type", &Target_reply::type),
+    optional("imported", &Target_reply::imported),
+    optional("fileSets",
+             &Target_reply::file_sets,
+             json::array(partial_object<File_set>(required("type", &File_set::type),
+                                                  required("visibility", &File_set::visibility)))),
+    optional("sources", &Target_reply::sources, json::array(source)),
+    optional("interfaceSources", &Target_reply::interface_sources, json::array(source)),
+    optional("interfaceIncludes",
+             &Target_reply::interface_includes,
+             json::array(partial_object<Interface_include>(
+               required("path", &Interface_include::path)))),
+    optional("backtraceGraph",
+             &Target_reply::backtrace_graph,
+             partial_object<Backtrace_graph>(
+               required("files", &Backtrace_graph::files, json::array(json::value<std::string>())),
+               required("nodes",
+                        &Backtrace_graph::nodes,
+                        json::array(partial_object<Backtrace_node>(
+                          optional("file", &Backtrace_node::file),
+                          optional("line", &Backtrace_node::line),
+                          optional("parent", &Backtrace_node::parent)))))),
+    optional("compileDependencies", &Target_reply::compile_dependencies, json::array(dependency)),
+    optional("interfaceCompileDependencies",
+             &Target_reply::interface_compile_dependencies,
+             json::array(dependency)));
+}
+
+// ---------------------------------------------------------------------------
+// Turning replies into Target_data
 
 bool is_linkable_target_type(std::string_view type)
 {
@@ -195,711 +227,261 @@ bool is_linkable_target_type(std::string_view type)
          type == "OBJECT_LIBRARY" || type == "MODULE_LIBRARY";
 }
 
+// The location of the innermost backtrace frame that names a file, e.g. the
+// target_link_libraries() call that added a dependency.
 std::optional<Source_location> backtrace_location(const Backtrace_graph& graph, uint64_t index)
 {
-  if (index >= graph.nodes.size())
+  // Bounded by the node count so that a malformed, cyclic graph terminates.
+  for (size_t steps = 0; index < graph.nodes.size() && steps < graph.nodes.size(); ++steps)
   {
-    return std::nullopt;
-  }
-
-  auto current_index = index;
-  while (true)
-  {
-    const auto& node = graph.nodes[static_cast<size_t>(current_index)];
-
-    if (!node.parent.has_value() || node.file.has_value())
+    const auto& node = graph.nodes[index];
+    if (node.file != no_index || node.parent == no_index)
     {
-      if (node.file.has_value() && *node.file < graph.files.size())
+      if (node.file >= graph.files.size())
       {
-        return Source_location{std::filesystem::path(graph.files[*node.file]).lexically_normal(),
-                               node.line};
+        return std::nullopt;
       }
-      return std::nullopt;
+      return Source_location{std::filesystem::path(graph.files[node.file]).lexically_normal(),
+                             static_cast<size_t>(node.line)};
     }
-
-    current_index = *node.parent;
+    index = node.parent;
   }
+  return std::nullopt;
 }
 
-std::expected<void, std::string> read_dependencies(
-  simdjson::ondemand::object& root,
-  std::string_view field_name,
-  std::unordered_set<std::string>& destination,
-  std::map<std::string, Source_location>& dep_locations,
-  const std::optional<Backtrace_graph>& backtrace_graph)
+class Target_data_builder
 {
-  simdjson::ondemand::value dependencies_field;
-  if (auto error = root.find_field_unordered(field_name).get(dependencies_field))
+public:
+  Target_data_builder(Codemodel_version version,
+                      std::filesystem::path source_root,
+                      std::map<std::string, std::string> id_to_name)
+  : version_(version),
+    source_root_(std::move(source_root)),
+    id_to_name_(std::move(id_to_name))
   {
-    if (error == simdjson::NO_SUCH_FIELD)
-    {
-      return {};
-    }
-    return std::unexpected(simdjson::error_message(error));
   }
 
-  simdjson::ondemand::array dependencies;
-  if (auto error = dependencies_field.get_array().get(dependencies))
+  // Paths in replies may be relative to the source directory.
+  [[nodiscard]] std::filesystem::path absolute(std::string_view path) const
   {
-    return std::unexpected(simdjson::error_message(error));
+    const std::filesystem::path result(path);
+    return (result.is_relative() ? source_root_ / result : result).lexically_normal();
   }
 
-  for (auto dep_value : dependencies)
+  [[nodiscard]] Target_data build(const Target_reply& reply) const
   {
-    simdjson::ondemand::object dep;
-    if (auto error = dep_value.get_object().get(dep))
-    {
-      return std::unexpected(simdjson::error_message(error));
-    }
-    std::string_view id;
-    if (auto error = dep.find_field_unordered("id").get(id))
-    {
-      return std::unexpected(simdjson::error_message(error));
-    }
-    if (id.empty())
-    {
-      continue;
-    }
+    Target_data data;
+    data.imported = reply.imported;
 
-    const auto dep_id = std::string(id);
-    destination.insert(dep_id);
-
-    if (!backtrace_graph.has_value())
+    std::set<uint64_t> interface_header_sets;
+    for (uint64_t index = 0; index < reply.file_sets.size(); ++index)
     {
-      continue;
-    }
-
-    simdjson::ondemand::value backtrace_field;
-    if (auto error = dep.find_field_unordered("backtrace").get(backtrace_field);
-        error != simdjson::NO_SUCH_FIELD)
-    {
-      if (error)
+      const auto& file_set = reply.file_sets[index];
+      if (file_set.type == "HEADERS" &&
+          (file_set.visibility == "PUBLIC" || file_set.visibility == "INTERFACE"))
       {
-        return std::unexpected(simdjson::error_message(error));
+        interface_header_sets.insert(index);
       }
+    }
 
-      uint64_t backtrace = 0U;
-      if (auto error = backtrace_field.get_uint64().get(backtrace))
+    for (const auto& source : reply.sources)
+    {
+      auto path = absolute(source.path);
+      if (std::ranges::any_of(file_set_indexes_of(source),
+                              [&](uint64_t index) { return interface_header_sets.contains(index); }))
       {
-        return std::unexpected(simdjson::error_message(error));
+        data.interface_headers.insert(path);
       }
-      if (auto location = backtrace_location(*backtrace_graph, backtrace);
-          location.has_value())
+      data.sources.insert(std::move(path));
+    }
+    for (const auto& source : reply.interface_sources)
+    {
+      data.interface_headers.insert(absolute(source.path));
+    }
+    if (version_.supports(Codemodel_feature::interface_includes))
+    {
+      for (const auto& include : reply.interface_includes)
       {
-        dep_locations.try_emplace(dep_id, *location);
+        data.interface_include_directories.insert(absolute(include.path));
+      }
+    }
+
+    // Interface dependencies first, so that their locations take precedence.
+    add_dependencies(reply, reply.interface_compile_dependencies, data.interface_dependencies, data);
+    add_dependencies(reply, reply.compile_dependencies, data.dependencies, data);
+    return data;
+  }
+
+private:
+  // The file sets a source belongs to, from whichever field this codemodel
+  // version provides.
+  [[nodiscard]] std::vector<uint64_t> file_set_indexes_of(const Source& source) const
+  {
+    if (version_.supports(Codemodel_feature::file_set_indexes))
+    {
+      return source.file_set_indexes;
+    }
+    if (source.file_set_index != no_index)
+    {
+      return {source.file_set_index};
+    }
+    return {};
+  }
+
+  void add_dependencies(const Target_reply& reply,
+                        const std::vector<Dependency>& dependencies,
+                        std::unordered_set<Target>& destination,
+                        Target_data& data) const
+  {
+    for (const auto& dependency : dependencies)
+    {
+      const auto name = id_to_name_.find(dependency.id);
+      if (name == id_to_name_.end())
+      {
+        continue;
+      }
+      const Target target{name->second};
+      destination.insert(target);
+      if (auto location = backtrace_location(reply.backtrace_graph, dependency.backtrace))
+      {
+        data.dependency_locations.emplace(target, std::move(*location));
       }
     }
   }
 
-  return {};
-}
+  Codemodel_version version_;
+  std::filesystem::path source_root_;
+  // Dependencies refer to targets by id; lwyi names them by target name.
+  std::map<std::string, std::string> id_to_name_;
+};
 
-std::expected<void, std::string> read_json_file(File_loader& file_loader,
-                                                simdjson::ondemand::parser& parser,
-                                                const std::filesystem::path& path,
-                                                simdjson::ondemand::document& doc)
+std::expected<std::filesystem::path, std::string> find_codemodel(
+  const std::filesystem::path& reply_dir)
 {
-  if (!file_loader.load(path))
+  if (!std::filesystem::is_directory(reply_dir))
   {
-    return std::unexpected(std::format("error: failed to load {}", path.string()));
+    return std::unexpected(std::format(
+      "error: failed to locate CMake File API reply directory {}", reply_dir.string()));
   }
-
-  if (auto error =
-        parser
-          .iterate(file_loader.data(), file_loader.size(), file_loader.size_with_padding())
-          .get(doc))
+  for (const auto& entry : std::filesystem::directory_iterator(reply_dir))
   {
-    return std::unexpected(
-      std::format("error parsing {}: {}", path.string(), simdjson::error_message(error)));
-  }
-
-  return {};
-}
-
-std::expected<Target_info, std::string> read_target(const std::filesystem::path& reply_dir,
-                                                    File_loader& file_loader,
-                                                    simdjson::ondemand::parser& parser,
-                                                    const std::string& json_name,
-                                                    Codemodel_version version)
-{
-  simdjson::ondemand::document doc;
-  if (auto result = read_json_file(file_loader, parser, reply_dir / json_name, doc);
-      !result.has_value())
-  {
-    return std::unexpected(result.error());
-  }
-
-  simdjson::ondemand::object root;
-  if (auto error = doc.get_object().get(root))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-
-  Target_info target;
-  std::string_view id;
-  if (auto error = root.find_field_unordered("id").get(id))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  target.id = std::string(id);
-
-  std::string_view name;
-  if (auto error = root.find_field_unordered("name").get(name))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  target.name = std::string(name);
-
-  std::string_view type;
-  if (auto error = root.find_field_unordered("type").get(type))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  target.type = std::string(type);
-
-  target.imported = !root.find_field_unordered("imported").error();
-
-  std::set<uint64_t> interface_header_sets;
-  {
-    simdjson::ondemand::value file_sets_field;
-    if (auto error = root.find_field_unordered("fileSets").get(file_sets_field);
-        error != simdjson::NO_SUCH_FIELD)
+    if (entry.is_regular_file() && entry.path().filename().string().starts_with("codemodel-v2-"))
     {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array file_sets;
-      if (auto error = file_sets_field.get_array().get(file_sets))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      uint64_t index = 0;
-      for (auto file_set_value : file_sets)
-      {
-        simdjson::ondemand::object file_set;
-        if (auto error = file_set_value.get_object().get(file_set))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view type;
-        if (auto error = file_set.find_field_unordered("type").get(type))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view visibility;
-        if (auto error = file_set.find_field_unordered("visibility").get(visibility))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        if (type == "HEADERS" && (visibility == "PUBLIC" || visibility == "INTERFACE"))
-        {
-          interface_header_sets.insert(index);
-        }
-        ++index;
-      }
+      return entry.path();
     }
   }
-
-  {
-    simdjson::ondemand::value sources_field;
-    if (auto error = root.find_field_unordered("sources").get(sources_field);
-        error != simdjson::NO_SUCH_FIELD)
-    {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array sources;
-      if (auto error = sources_field.get_array().get(sources))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      for (auto source_value : sources)
-      {
-        simdjson::ondemand::object source;
-        if (auto error = source_value.get_object().get(source))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view path;
-        if (auto error = source.find_field_unordered("path").get(path))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        target.sources.insert(std::filesystem::path(path).lexically_normal());
-
-        std::vector<uint64_t> file_set_indexes;
-        if (version.supports(Codemodel_feature::file_set_indexes))
-        {
-          simdjson::ondemand::value file_set_indexes_field;
-          if (auto error =
-                source.find_field_unordered("fileSetIndexes").get(file_set_indexes_field);
-              error != simdjson::NO_SUCH_FIELD)
-          {
-            if (error)
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-
-            simdjson::ondemand::array indexes;
-            if (auto error = file_set_indexes_field.get_array().get(indexes))
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-
-            for (auto index_value : indexes)
-            {
-              uint64_t index = 0U;
-              if (auto error = index_value.get_uint64().get(index))
-              {
-                return std::unexpected(simdjson::error_message(error));
-              }
-              file_set_indexes.push_back(index);
-            }
-          }
-        }
-        else
-        {
-          simdjson::ondemand::value file_set_index_field;
-          if (auto error = source.find_field_unordered("fileSetIndex").get(file_set_index_field);
-              error != simdjson::NO_SUCH_FIELD)
-          {
-            if (error)
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-            uint64_t index = 0U;
-            if (auto error = file_set_index_field.get_uint64().get(index))
-            {
-              return std::unexpected(simdjson::error_message(error));
-            }
-            file_set_indexes.push_back(index);
-          }
-        }
-
-        for (auto index : file_set_indexes)
-        {
-          if (interface_header_sets.contains(index))
-          {
-            target.public_headers.insert(std::filesystem::path(path).lexically_normal());
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  {
-    simdjson::ondemand::value interface_sources_field;
-    if (auto error = root.find_field_unordered("interfaceSources").get(interface_sources_field);
-        error != simdjson::NO_SUCH_FIELD)
-    {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array interface_sources;
-      if (auto error = interface_sources_field.get_array().get(interface_sources))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      for (auto source_value : interface_sources)
-      {
-        simdjson::ondemand::object source;
-        if (auto error = source_value.get_object().get(source))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view path;
-        if (auto error = source.find_field_unordered("path").get(path))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        target.public_headers.insert(std::filesystem::path(path).lexically_normal());
-      }
-    }
-  }
-
-  if (version.supports(Codemodel_feature::interface_includes))
-  {
-    simdjson::ondemand::value interface_includes_field;
-    if (auto error = root.find_field_unordered("interfaceIncludes").get(interface_includes_field);
-        error != simdjson::NO_SUCH_FIELD)
-    {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array interface_includes;
-      if (auto error = interface_includes_field.get_array().get(interface_includes))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      for (auto include_value : interface_includes)
-      {
-        simdjson::ondemand::object include;
-        if (auto error = include_value.get_object().get(include))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view path;
-        if (auto error = include.find_field_unordered("path").get(path))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        target.include_dirs.push_back(std::filesystem::path(path).lexically_normal());
-      }
-    }
-  }
-
-  std::optional<Backtrace_graph> backtrace_graph;
-  simdjson::ondemand::value backtrace_graph_field;
-  if (auto error = root.find_field_unordered("backtraceGraph").get(backtrace_graph_field);
-      error != simdjson::NO_SUCH_FIELD)
-  {
-    if (error)
-    {
-      return std::unexpected(simdjson::error_message(error));
-    }
-
-    simdjson::ondemand::object backtrace_graph_object;
-    if (auto error = backtrace_graph_field.get_object().get(backtrace_graph_object))
-    {
-      return std::unexpected(simdjson::error_message(error));
-    }
-
-    auto parsed_backtrace_graph = parse_backtrace_graph(backtrace_graph_object, json_name);
-    if (!parsed_backtrace_graph.has_value())
-    {
-      return std::unexpected(parsed_backtrace_graph.error());
-    }
-    backtrace_graph = std::move(parsed_backtrace_graph.value());
-  }
-
-  if (auto result = read_dependencies(root,
-                                      "interfaceCompileDependencies",
-                                      target.interface_dependencies,
-                                      target.dep_locations,
-                                      backtrace_graph);
-      !result.has_value())
-  {
-    return std::unexpected(result.error());
-  }
-  if (auto result = read_dependencies(root,
-                                      "compileDependencies",
-                                      target.dependencies,
-                                      target.dep_locations,
-                                      backtrace_graph);
-      !result.has_value())
-  {
-    return std::unexpected(result.error());
-  }
-
-  return target;
+  return std::unexpected("error: could not locate codemodel reply");
 }
 
 std::expected<std::map<Target, Target_data>, std::string> load_file_api_targets(
-  const std::filesystem::path& build_dir,
-  File_loader& file_loader,
-  simdjson::ondemand::parser& parser)
+  const std::filesystem::path& build_dir)
 {
   const auto reply_dir = build_dir / ".cmake" / "api" / "v1" / "reply";
-  if (!std::filesystem::is_directory(reply_dir))
+  auto codemodel_path = find_codemodel(reply_dir);
+  if (!codemodel_path)
   {
-    return std::unexpected(
-      std::format("error: failed to locate CMake File API reply directory {}",
-                  reply_dir.string()));
+    return std::unexpected(codemodel_path.error());
+  }
+  auto codemodel = json::read_file(*codemodel_path, codemodel_schema());
+  if (!codemodel)
+  {
+    return std::unexpected(codemodel.error());
   }
 
-  std::filesystem::path codemodel_path;
-  for (const auto& entry : std::filesystem::directory_iterator(reply_dir))
-  {
-    if (!entry.is_regular_file())
-    {
-      continue;
-    }
-
-    const auto filename = entry.path().filename().string();
-    if (filename.starts_with("codemodel-v2-"))
-    {
-      codemodel_path = entry.path();
-      break;
-    }
-  }
-
-  if (codemodel_path.empty())
-  {
-    return std::unexpected("error: could not locate codemodel reply");
-  }
-
-  simdjson::ondemand::document codemodel_doc;
-  if (auto result = read_json_file(file_loader, parser, codemodel_path, codemodel_doc);
-      !result.has_value())
-  {
-    return std::unexpected(result.error());
-  }
-
-  simdjson::ondemand::object codemodel_root;
-  if (auto error = codemodel_doc.get_object().get(codemodel_root))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-
-  simdjson::ondemand::object version;
-  if (auto error = codemodel_root.find_field_unordered("version").get_object().get(version))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-
-  uint64_t major = 0;
-  if (auto error = version.find_field_unordered("major").get_uint64().get(major))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  uint64_t minor = 0;
-  if (auto error = version.find_field_unordered("minor").get_uint64().get(minor))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-
-  const Codemodel_version codemodel_version{major, minor};
-  if (codemodel_version < FILE_API_VERSION_REQUIRED)
+  const auto& version = codemodel->version;
+  if (version < FILE_API_VERSION_REQUIRED)
   {
     return std::unexpected(std::format(
       "error: lwyi requires CMake file API codemodel version {}.{} or newer; found {}.{}",
       FILE_API_VERSION_REQUIRED.major,
       FILE_API_VERSION_REQUIRED.minor,
-      major,
-      minor));
+      version.major,
+      version.minor));
   }
-
-  simdjson::ondemand::object paths;
-  if (auto error = codemodel_root.find_field_unordered("paths").get_object().get(paths))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  std::string_view source_dir_string;
-  if (auto error = paths.find_field_unordered("source").get(source_dir_string))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  const auto source_root = std::filesystem::path(source_dir_string).lexically_normal();
-
-  simdjson::ondemand::array configurations;
-  if (auto error =
-        codemodel_root.find_field_unordered("configurations").get_array().get(configurations))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
-  auto configuration_it = configurations.begin();
-  if (configuration_it == configurations.end())
+  if (codemodel->configurations.empty())
   {
     return std::unexpected("error: no configurations in codemodel reply");
   }
 
-  simdjson::ondemand::object configuration;
-  if (auto error = (*configuration_it).get_object().get(configuration))
-  {
-    return std::unexpected(simdjson::error_message(error));
-  }
+  // Only the first configuration is used.
+  const auto& configuration = codemodel->configurations.front();
+  std::vector<Target_reference> references = configuration.targets;
+  references.insert(references.end(),
+                    configuration.abstract_targets.begin(),
+                    configuration.abstract_targets.end());
 
   std::map<std::string, std::string> id_to_name;
+  for (const auto& reference : references)
+  {
+    id_to_name[reference.id] = reference.name;
+  }
+
+  const Target_data_builder builder(
+    version, std::filesystem::path(codemodel->paths.source).lexically_normal(), std::move(id_to_name));
+  const auto schema = target_schema();
+  std::map<Target, Target_data> targets;
   std::map<std::string, std::vector<std::filesystem::path>> verify_sources_by_base_target;
-  std::map<Target, Target_data> target_to_target_data;
+  constexpr std::string_view verify_suffix = "_verify_interface_header_sets";
 
-  std::vector<std::pair<std::string, std::string>> target_id_to_json;
-  auto collect_targets = [&](std::string_view field_name,
-                             bool required) -> std::expected<void, std::string>
+  for (const auto& reference : references)
   {
-    simdjson::ondemand::value targets_field;
-    if (auto error = configuration.find_field_unordered(field_name).get(targets_field);
-        error != simdjson::NO_SUCH_FIELD)
+    auto reply = json::read_file(reply_dir / reference.json_file, schema);
+    if (!reply)
     {
-      if (error)
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      simdjson::ondemand::array targets;
-      if (auto error = targets_field.get_array().get(targets))
-      {
-        return std::unexpected(simdjson::error_message(error));
-      }
-
-      for (auto target_value : targets)
-      {
-        simdjson::ondemand::object target;
-        if (auto error = target_value.get_object().get(target))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view id;
-        if (auto error = target.find_field_unordered("id").get(id))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view name;
-        if (auto error = target.find_field_unordered("name").get(name))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        std::string_view json_file;
-        if (auto error = target.find_field_unordered("jsonFile").get(json_file))
-        {
-          return std::unexpected(simdjson::error_message(error));
-        }
-        id_to_name[std::string(id)] = std::string(name);
-        target_id_to_json.emplace_back(std::string(id), std::string(json_file));
-      }
-    }
-    else if (required)
-    {
-      return std::unexpected(simdjson::error_message(error));
+      return std::unexpected(reply.error());
     }
 
-    return {};
-  };
-
-  if (auto result = collect_targets("targets", true); !result.has_value())
-  {
-    return std::unexpected(result.error());
-  }
-  if (auto result = collect_targets("abstractTargets", false); !result.has_value())
-  {
-    return std::unexpected(result.error());
-  }
-
-  for (const auto& [id, json_file] : target_id_to_json)
-  {
-    auto target_info = read_target(reply_dir, file_loader, parser, json_file, codemodel_version);
-    if (!target_info.has_value())
+    // CMAKE_VERIFY_INTERFACE_HEADER_SETS targets compile a base target's
+    // headers; their sources are recorded on the base target.
+    if (reply->name.size() > verify_suffix.size() && reply->name.ends_with(verify_suffix))
     {
-      return std::unexpected(target_info.error());
-    }
-
-    constexpr std::string_view verify_suffix = "_verify_interface_header_sets";
-    if (target_info->name.size() > verify_suffix.size() &&
-        target_info->name.ends_with(verify_suffix))
-    {
-      const auto base_target_name =
-        target_info->name.substr(0, target_info->name.size() - verify_suffix.size());
-      std::vector<std::filesystem::path> verify_sources;
-      verify_sources.reserve(target_info->sources.size());
-      for (const auto& source : target_info->sources)
+      auto& verify_sources =
+        verify_sources_by_base_target[reply->name.substr(0, reply->name.size() - verify_suffix.size())];
+      for (const auto& source : reply->sources)
       {
-        auto candidate = source.is_relative() ? source_root / source : source;
-        verify_sources.push_back(candidate.lexically_normal());
+        verify_sources.push_back(builder.absolute(source.path));
       }
-      verify_sources_by_base_target[std::string(base_target_name)] =
-        std::move(verify_sources);
       continue;
     }
 
-    if (!is_linkable_target_type(target_info->type))
+    if (!is_linkable_target_type(reply->type))
     {
       continue;
     }
-    if (target_info->imported && target_info->public_headers.empty() &&
-        target_info->include_dirs.empty())
+    auto data = builder.build(*reply);
+    if (data.imported && data.interface_headers.empty() &&
+        data.interface_include_directories.empty())
     {
       continue;
     }
-
-    Target_data target_data;
-    target_data.imported = target_info->imported;
-    for (const auto& include_dir : target_info->include_dirs)
+    if (!targets.emplace(Target{reply->name}, std::move(data)).second)
     {
-      auto candidate = include_dir.is_relative() ? source_root / include_dir : include_dir;
-      target_data.interface_include_directories.insert(candidate.lexically_normal());
-    }
-    for (const auto& header : target_info->public_headers)
-    {
-      auto candidate = header.is_relative() ? source_root / header : header;
-      target_data.interface_headers.insert(candidate.lexically_normal());
-    }
-    for (const auto& source : target_info->sources)
-    {
-      auto candidate = source.is_relative() ? source_root / source : source;
-      target_data.sources.insert(candidate.lexically_normal());
-    }
-    for (const auto& dep_id : target_info->dependencies)
-    {
-      auto it = id_to_name.find(dep_id);
-      if (it == id_to_name.end())
-      {
-        continue;
-      }
-
-      const auto dep_target = Target{it->second};
-      target_data.dependencies.insert(dep_target);
-      if (auto location_it = target_info->dep_locations.find(dep_id);
-          location_it != target_info->dep_locations.end())
-      {
-        target_data.dependency_locations.emplace(dep_target, location_it->second);
-      }
-    }
-    for (const auto& dep_id : target_info->interface_dependencies)
-    {
-      auto it = id_to_name.find(dep_id);
-      if (it == id_to_name.end())
-      {
-        continue;
-      }
-
-      const auto dep_target = Target{it->second};
-      target_data.interface_dependencies.insert(dep_target);
-      if (auto location_it = target_info->dep_locations.find(dep_id);
-          location_it != target_info->dep_locations.end())
-      {
-        target_data.dependency_locations.emplace(dep_target, location_it->second);
-      }
-    }
-
-    if (!target_to_target_data.emplace(Target{target_info->name}, std::move(target_data)).second)
-    {
-      return std::unexpected(std::format("Target {} is repeated", target_info->name));
+      return std::unexpected(std::format("Target {} is repeated", reply->name));
     }
   }
 
   for (const auto& [base_target_name, verify_sources] : verify_sources_by_base_target)
   {
-    if (auto it = target_to_target_data.find(Target{base_target_name});
-        it != target_to_target_data.end())
+    if (auto it = targets.find(Target{base_target_name}); it != targets.end())
     {
       it->second.verify_interface_header_sets_sources.insert(verify_sources.begin(),
                                                              verify_sources.end());
     }
   }
 
-  return target_to_target_data;
+  return targets;
 }
 } // namespace
-
-File_api_target_model_loader_impl::File_api_target_model_loader_impl(
-  std::unique_ptr<File_loader> file_loader)
-: file_loader_(std::move(file_loader))
-{
-}
 
 std::expected<void, std::string> File_api_target_model_loader_impl::load_directory(
   const std::filesystem::path& path)
 {
-  auto target_to_target_data = load_file_api_targets(path, *file_loader_, parser_);
-  if (!target_to_target_data.has_value())
+  auto targets = load_file_api_targets(path);
+  if (!targets)
   {
-    return std::unexpected(target_to_target_data.error());
+    return std::unexpected(targets.error());
   }
-
-  target_to_target_data_ = std::move(target_to_target_data.value());
+  target_to_target_data_ = std::move(*targets);
   return {};
 }
 
@@ -918,7 +500,6 @@ Target_model File_api_target_model_loader_impl::make_target_model(
 
 std::unique_ptr<Target_model_loader> Target_model_loader::create()
 {
-  return std::make_unique<File_api_target_model_loader_impl>(
-    std::make_unique<Real_file_loader>());
+  return std::make_unique<File_api_target_model_loader_impl>();
 }
 } // namespace target_model

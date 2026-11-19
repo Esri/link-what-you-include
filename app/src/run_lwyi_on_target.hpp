@@ -7,7 +7,7 @@
 
 namespace lwyi
 {
-class Config;
+struct Config;
 }
 
 namespace target_model

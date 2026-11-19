@@ -24,7 +24,7 @@ target_link_libraries(lib_lwyi
     lib_scanner
     lib_target_model
   PRIVATE
-    simdjson::simdjson
+    lib_json
   )
 
 if(BUILD_TESTING)
@@ -47,7 +47,6 @@ if(BUILD_TESTING)
       lib_scanner
       lib_target_model
       Catch2::Catch2WithMain
-      simdjson::simdjson
     )
   catch_discover_tests(lib_lwyi_test ADD_TAGS_AS_LABELS)
 endif()
