@@ -415,7 +415,7 @@ TEST_CASE("scanner: scan collects private includes previously externally include
 TEST_CASE("scanner: scan collects interface includes previously externally included",
           "[scanner]")
 {
-  message::configure(message::Color_output::never, message::Message_level::debug);
+  message::configure(message::Color_output::never, message::Message_level::normal);
 
   // Given:
   //   private.cpp
