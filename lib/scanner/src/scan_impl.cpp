@@ -155,7 +155,7 @@ class PPRecorder : public clang::PPCallbacks
             .emplace(include.path, include_chain)
             .second)
       {
-        message::debug("Interface dependency added: {}", to_source.string());
+        message::debug("Interface dependency added: {}", include.path.string());
       }
     }
   }
