@@ -78,12 +78,10 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
   }
 
   std::map<target_model::Target, std::set<std::string>> target_prefixes;
-  config.for_each_non_default_target_config(
-    [&target_prefixes](const target_model::Target& target,
-                       const lwyi::Target_config& target_config)
-    {
-      target_prefixes[target] = target_config.interface_include_prefixes;
-    });
+  for (const auto& [target, target_config] : config.targets)
+  {
+    target_prefixes[target] = target_config.interface_include_prefixes;
+  }
 
   auto target_model = loader->make_target_model(std::move(target_prefixes));
 
@@ -112,7 +110,7 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
       [&](const target_model::Target& target, const target_model::Target_data& target_data)
       {
         const auto& target_config = config.get_target_config(target);
-        if ((target_config.allow_includes && target_config.allow_links) || target_data.imported)
+        if (target_data.imported || target_config.skips_validation())
         {
           return;
         }
@@ -155,7 +153,7 @@ std::expected<int, std::string> run_lwyi(const cli::Command_options& options)
       }
 
       const auto& target_config = config.get_target_config(target);
-      if (target_config.allow_includes && target_config.allow_links)
+      if (target_config.skips_validation())
       {
         message::note("Validation skipped by config.");
         continue;

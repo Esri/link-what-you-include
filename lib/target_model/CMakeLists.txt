@@ -9,19 +9,16 @@ target_sources(lib_target_model
     include/target_model/target_model.hpp
     include/target_model/target_model_loader.hpp
   PRIVATE FILE_SET private_headers TYPE HEADERS FILES
-    src/file_loader.hpp
     src/file_api_target_model_loader_impl.hpp
-    src/real_file_loader.hpp
   PRIVATE
     src/file_api_target_model_loader_impl.cpp
-    src/real_file_loader.cpp
     src/target_data.cpp
     src/target_model.cpp
   )
 target_link_libraries(lib_target_model
   PRIVATE
+    lib_json
     lib_util
-    simdjson::simdjson
   )
 
 if(BUILD_TESTING)

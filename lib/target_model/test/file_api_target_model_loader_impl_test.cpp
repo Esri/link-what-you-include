@@ -373,3 +373,50 @@ TEST_CASE("target_model: file_api_target_model_loader_impl fails for missing cod
          result.error().find("failed to locate CMake File API reply directory") !=
            std::string::npos));
 }
+
+TEST_CASE("target_model: file_api_target_model_loader_impl ignores unknown fields and "
+          "reports malformed ones by path",
+          "[target_model]")
+{
+  Temp_directory temp_directory{"lwyi-file-api-test-fields"};
+  temp_directory.write(".cmake/api/v1/reply/codemodel-v2-1.json", R"===({
+  "kind": "codemodel", "futureField": {"anything": [1, 2]},
+  "version": { "major": 2, "minor": 10 },
+  "paths": { "source": "/src", "build": "/build" },
+  "configurations": [
+    { "name": "Debug", "targets": [ { "id": "liba::@1", "name": "liba", "jsonFile": "target-liba.json" } ] }
+  ]
+})===");
+
+  SECTION("unknown fields are ignored")
+  {
+    temp_directory.write(".cmake/api/v1/reply/target-liba.json", R"===({
+  "id": "liba::@1", "name": "liba", "type": "STATIC_LIBRARY", "futureField": true,
+  "sources": [ { "path": "a.cpp", "compileGroupIndex": 0, "isGenerated": false } ]
+})===");
+    auto loader = target_model::Target_model_loader::create();
+    auto result = loader->load_directory(temp_directory.path());
+    if (!result.has_value())
+    {
+      FAIL(result.error());
+    }
+    auto model = loader->make_target_model({});
+    auto data = model.get_target_data(target_model::Target{"liba"});
+    REQUIRE(data.has_value());
+    const auto& liba = data->get(); // NOLINT(bugprone-unchecked-optional-access)
+    CHECK(liba.sources.contains(std::filesystem::path{"/src/a.cpp"}));
+  }
+
+  SECTION("a malformed field is reported with its file and path")
+  {
+    temp_directory.write(".cmake/api/v1/reply/target-liba.json", R"===({
+  "id": "liba::@1", "name": "liba", "type": "STATIC_LIBRARY",
+  "sources": [ { "path": "a.cpp" }, { "path": 7 } ]
+})===");
+    auto loader = target_model::Target_model_loader::create();
+    auto result = loader->load_directory(temp_directory.path());
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().ends_with(
+      "target-liba.json: field \"sources\": element 1: field \"path\": expected string"));
+  }
+}

@@ -85,6 +85,14 @@ An optional boolean controlling whether other targets may link to this target
 without including it. Setting this to `true` is equivalent to adding this
 target to the `allow_links` list of all other targets. The default is `false`.
 
+### `ignore`
+
+An optional boolean that skips all validation of this target.
+
+This is equivalent to setting `allow_includes`, `allow_links`,
+`interface_allow_includes` and `interface_allow_links` to `true`, and cannot
+be combined with any non-default value of those fields.
+
 ### `interface_include_prefixes`
 
 An optional array of interface include prefixes for this target, which

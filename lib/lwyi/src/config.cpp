@@ -6,46 +6,60 @@
 #include <target_model/target.hpp>
 
 #include <flat_map>
-#include <functional>
-#include <iterator>
-#include <map>
+#include <set>
 #include <utility>
 
 namespace lwyi
 {
-Config::Config() = default;
-
-Config::Config(const Global_config& global_config,
-               std::map<target_model::Target, Target_config> target_configs)
-: global_config_(global_config),
-  target_configs_(std::sorted_unique, // NOLINT(misc-include-cleaner) false error
-                  std::make_move_iterator(target_configs.begin()),
-                  std::make_move_iterator(target_configs.end()))
+Allowance::Allowance(bool all)
+: all_(all)
 {
 }
 
-const Global_config& Config::get_global_config() const
+Allowance::Allowance(std::set<target_model::Target> targets)
+: targets_(std::move(targets))
 {
-  return global_config_;
+}
+
+bool Allowance::allows(const target_model::Target& target) const
+{
+  return all_ || targets_.contains(target);
+}
+
+bool Allowance::allows_all() const
+{
+  return all_;
+}
+
+bool Target_config::skips_validation() const
+{
+  return ignore || (allow_includes.allows_all() && allow_links.allows_all());
+}
+
+// An ignored dependency is treated as if it set both interface_allow_* fields:
+// no other target is reported for how it uses an ignored target.
+bool Target_config::may_include_without_linking(const target_model::Target& dep,
+                                                const Target_config& dep_config) const
+{
+  return ignore || allow_includes.allows(dep) || dep_config.ignore ||
+         dep_config.interface_allow_includes;
+}
+
+bool Target_config::may_link_without_including(const target_model::Target& dep,
+                                               const Target_config& dep_config) const
+{
+  return ignore || allow_links.allows(dep) || dep_config.ignore ||
+         dep_config.interface_allow_links;
 }
 
 const Target_config& Config::get_target_config(const target_model::Target& target) const
 {
-  if (const auto it = target_configs_.find(target); it != target_configs_.end())
+  if (const auto it = targets.find(target); it != targets.end())
   {
     return it->second;
   }
 
-  static Target_config default_target_config;
+  static const Target_config default_target_config;
   return default_target_config;
-}
-
-void Config::for_each_non_default_target_config(
-  const std::function<void(const target_model::Target&, const Target_config&)>& visitor) const
-{
-  for (const auto& pair : target_configs_)
-  {
-    visitor(pair.first, pair.second);
-  }
 }
 } // namespace lwyi

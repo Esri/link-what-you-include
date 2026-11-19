@@ -24,7 +24,7 @@ class Target_model;
 
 namespace lwyi
 {
-class Config;
+struct Config;
 
 struct LWYI_error
 {

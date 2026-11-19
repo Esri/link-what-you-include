@@ -14,10 +14,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <flat_map>
 #include <map>
 #include <print>
 #include <ranges>
 #include <string_view>
+#include <set>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -149,12 +151,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_links_set")
+      WHEN("check_target is called with a config that has an allow_links target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links_set.insert(target_model::Target{"liba"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"liba"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -172,10 +174,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_links")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -193,10 +195,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_links")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"liba"}];
         target_config.interface_allow_links = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -250,12 +252,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_links_set")
+      WHEN("check_target is called with a config that has an allow_links target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links_set.insert(target_model::Target{"liba"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"liba"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -273,10 +275,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_links")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -294,10 +296,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_links")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"liba"}];
         target_config.interface_allow_links = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -335,12 +337,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_includes_set")
+      WHEN("check_target is called with a config that has an allow_includes target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes_set.insert(target_model::Target{"libb"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libb"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -358,10 +360,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -379,10 +381,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libb"}];
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -420,13 +422,13 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_links_set and allow_includes_set")
+      WHEN("check_target is called with a config that has allow_links and allow_includes target lists")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links_set.insert(target_model::Target{"libb"});
-        target_config.allow_includes_set.insert(target_model::Target{"libb"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libb"}}};
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libb"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -444,11 +446,11 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_links and allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links = true;
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{true};
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -466,11 +468,11 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_links and interface_allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libb"}];
         target_config.interface_allow_links = true;
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -509,12 +511,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_includes_set")
+      WHEN("check_target is called with a config that has an allow_includes target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes_set.insert(target_model::Target{"libc"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libc"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -532,10 +534,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -553,10 +555,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_links")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libc"}];
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -594,13 +596,13 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_links_set and allow_includes_set")
+      WHEN("check_target is called with a config that has allow_links and allow_includes target lists")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links_set.insert(target_model::Target{"libc"});
-        target_config.allow_includes_set.insert(target_model::Target{"libc"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libc"}}};
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libc"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -618,11 +620,11 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_links and allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_links = true;
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_links = lwyi::Allowance{true};
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -640,11 +642,11 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_links and interface_allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libc"}];
         target_config.interface_allow_links = true;
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -683,12 +685,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::private_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_includes_set")
+      WHEN("check_target is called with a config that has an allow_includes target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes_set.insert(target_model::Target{"libd"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libd"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -706,10 +708,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -727,10 +729,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libd"}];
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -768,12 +770,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::interface_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_includes_set")
+      WHEN("check_target is called with a config that has an allow_includes target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes_set.insert(target_model::Target{"libd"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libd"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -791,10 +793,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -812,10 +814,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libd"}];
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -855,12 +857,12 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
           CHECK(errors[0].included_scope == lwyi::Dependency_scope::public_scope);
         }
       }
-      WHEN("check_target is called with a config that has allow_includes_set")
+      WHEN("check_target is called with a config that has an allow_includes target list")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes_set.insert(target_model::Target{"libd"});
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{std::set<target_model::Target>{target_model::Target{"libd"}}};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -878,10 +880,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libq"}];
-        target_config.allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        target_config.allow_includes = lwyi::Allowance{true};
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,
@@ -899,10 +901,10 @@ TEST_CASE("lwyi: check_target", "[lwyi]")
       }
       WHEN("check_target is called with a config that has interface_allow_includes")
       {
-        std::map<target_model::Target, lwyi::Target_config> target_configs;
+        std::flat_map<target_model::Target, lwyi::Target_config> target_configs;
         auto& target_config = target_configs[target_model::Target{"libd"}];
         target_config.interface_allow_includes = true;
-        lwyi::Config config({}, std::move(target_configs));
+        lwyi::Config config{.targets = std::move(target_configs)};
         auto errors = lwyi::check_target(config,
                                          target_model,
                                          target,

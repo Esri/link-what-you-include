@@ -20,8 +20,8 @@ target_link_libraries(lib_tidy
   PUBLIC
     lib_target_model
   PRIVATE
+    lib_json
     lib_lwyi
-    simdjson::simdjson
   )
 
 if(BUILD_TESTING)
@@ -40,7 +40,6 @@ if(BUILD_TESTING)
     PRIVATE
       lib_tidy
       lib_target_model
-      simdjson::simdjson
       Catch2::Catch2WithMain
     )
   catch_discover_tests(lib_tidy_test ADD_TAGS_AS_LABELS)

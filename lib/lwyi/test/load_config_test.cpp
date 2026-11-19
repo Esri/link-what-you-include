@@ -2,389 +2,161 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <src/load_config_impl.hpp>
+
 #include <target_model/target.hpp>
 
-#include <catch2/catch_test_macros.hpp>
-#include <simdjson.h>
 #include <catch2/catch_message.hpp>
+#include <catch2/catch_test_macros.hpp>
 
-#include <cstring>
+#include <format>
 #include <set>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 TEST_CASE("lwyi: load_config loads global and target configs", "[lwyi]")
 {
-  const char* json = R"({
-      "pedantic": true,
-      "targets": {
-        "liba": {
-          "allow_includes": ["libq", "libr"],
-          "allow_links": ["libs", "libt"],
-          "interface_allow_includes": true,
-          "interface_allow_links": true,
-          "interface_include_prefixes": ["foo", "bar"]
-        },
-        "libb": {
-          "allow_includes": false,
-          "allow_links": true,
-          "interface_allow_links": true,
-          "interface_include_prefixes": []
-        }
+  auto result = lwyi::load_config_impl(R"({
+    "pedantic": true,
+    "targets": {
+      "liba": {
+        "allow_includes": ["libq", "libr"],
+        "allow_links": ["libs", "libt"],
+        "interface_allow_includes": true,
+        "interface_allow_links": true,
+        "interface_include_prefixes": ["foo", "bar"]
+      },
+      "libb": {
+        "allow_includes": false,
+        "allow_links": true,
+        "interface_allow_links": true,
+        "interface_include_prefixes": []
       }
-    })";
-  simdjson::padded_string raw_config(json, std::strlen(json));
+    }
+  })");
+  REQUIRE(result);
+  CHECK(result->pedantic);
 
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(result.has_value());
+  const auto& liba = result->get_target_config(target_model::Target{"liba"});
+  CHECK(liba.interface_include_prefixes == std::set<std::string>{"bar", "foo"});
+  CHECK(liba.allow_includes ==
+        lwyi::Allowance{std::set<target_model::Target>{{"libq"}, {"libr"}}});
+  CHECK(liba.allow_links == lwyi::Allowance{std::set<target_model::Target>{{"libs"}, {"libt"}}});
+  CHECK(liba.interface_allow_includes);
+  CHECK(liba.interface_allow_links);
 
-  const auto& config = result.value();
-
-  const auto& global_config = config.get_global_config();
-  CHECK(global_config.pedantic == true);
-
-  const auto& a_config = config.get_target_config(target_model::Target{"liba"});
-  CHECK(a_config.interface_include_prefixes.size() == 2);
-  CHECK(a_config.interface_include_prefixes.contains("foo"));
-  CHECK(a_config.interface_include_prefixes.contains("bar"));
-  CHECK(a_config.allow_includes_set.size() == 2);
-  CHECK(a_config.allow_includes_set.contains(target_model::Target{"libq"}));
-  CHECK(a_config.allow_includes_set.contains(target_model::Target{"libr"}));
-  CHECK(a_config.allow_links_set.size() == 2);
-  CHECK(a_config.allow_links_set.contains(target_model::Target{"libs"}));
-  CHECK(a_config.allow_links_set.contains(target_model::Target{"libt"}));
-  CHECK(a_config.allow_includes == false);
-  CHECK(a_config.allow_links == false);
-  CHECK(a_config.interface_allow_includes == true);
-  CHECK(a_config.interface_allow_links == true);
-
-  const auto& b_config = config.get_target_config(target_model::Target{"libb"});
-  CHECK(b_config.interface_include_prefixes.empty());
-  CHECK(b_config.allow_includes_set.empty());
-  CHECK(b_config.allow_links_set.empty());
-  CHECK(b_config.allow_includes == false);
-  CHECK(b_config.allow_links == true);
-  CHECK(b_config.interface_allow_includes == false);
-  CHECK(b_config.interface_allow_links == true);
+  const auto& libb = result->get_target_config(target_model::Target{"libb"});
+  CHECK(libb.interface_include_prefixes.empty());
+  CHECK(libb.allow_includes == lwyi::Allowance{false});
+  CHECK(libb.allow_links.allows_all());
+  CHECK_FALSE(libb.interface_allow_includes);
+  CHECK(libb.interface_allow_links);
 }
 
-TEST_CASE("lwyi: load_config ignore", "[lwyi]")
+TEST_CASE("lwyi: load_config defaults optional fields", "[lwyi]")
 {
-  const char* json = R"({
-      "targets": {
-        "liba": {
-          "ignore": true
-        }
-      }
-    })";
-  simdjson::padded_string raw_config(json, std::strlen(json));
+  auto empty = lwyi::load_config_impl("{}");
+  REQUIRE(empty);
+  CHECK_FALSE(empty->pedantic);
 
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(result.has_value());
-
-  const auto& config = result.value();
-  const auto& a_config = config.get_target_config(target_model::Target{"liba"});
-  CHECK(a_config.interface_include_prefixes.empty() == true);
-  CHECK(a_config.allow_includes_set.empty() == true);
-  CHECK(a_config.allow_links_set.empty() == true);
-  CHECK(a_config.allow_includes == true);
-  CHECK(a_config.allow_links == true);
-  CHECK(a_config.interface_allow_includes == true);
-  CHECK(a_config.interface_allow_links == true);
+  auto target = lwyi::load_config_impl(R"({"targets":{"liba":{}}})");
+  REQUIRE(target);
+  const auto& config = target->get_target_config(target_model::Target{"liba"});
+  CHECK(config.interface_include_prefixes.empty());
+  CHECK(config.allow_includes == lwyi::Allowance{});
+  CHECK(config.allow_links == lwyi::Allowance{});
+  CHECK_FALSE(config.interface_allow_includes);
+  CHECK_FALSE(config.interface_allow_links);
 }
 
-TEST_CASE("lwyi: load_config succeeds when targets is absent", "[lwyi]")
+TEST_CASE("lwyi: load_config stores ignore independently", "[lwyi]")
 {
-  const char* json = "{}";
-  simdjson::padded_string raw_config(json, std::strlen(json));
+  auto result = lwyi::load_config_impl(R"({"targets":{"liba":{"ignore":true}}})");
+  REQUIRE(result);
+  const auto& config = result->get_target_config(target_model::Target{"liba"});
+  CHECK(config.ignore);
+  CHECK(config.allow_includes == lwyi::Allowance{});
+  CHECK(config.allow_links == lwyi::Allowance{});
+  CHECK_FALSE(config.interface_allow_includes);
+  CHECK_FALSE(config.interface_allow_links);
+  CHECK(config.skips_validation());
 
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(result.has_value());
+  // ignore: false is the default, so the allow fields apply as usual.
+  auto not_ignored = lwyi::load_config_impl(
+    R"({"targets":{"liba":{"ignore":false,"allow_includes":true,"interface_allow_links":true}}})");
+  REQUIRE(not_ignored);
+  const auto& liba = not_ignored->get_target_config(target_model::Target{"liba"});
+  CHECK_FALSE(liba.ignore);
+  CHECK(liba.allow_includes.allows_all());
+  CHECK(liba.interface_allow_links);
+
+  // interface_include_prefixes still matters for an ignored target.
+  CHECK(lwyi::load_config_impl(
+          R"({"targets":{"liba":{"ignore":true,"interface_include_prefixes":["a"]}}})")
+          .has_value());
 }
 
-TEST_CASE("lwyi: load_config defaults missing fields", "[lwyi]")
+TEST_CASE("lwyi: load_config rejects allow fields that ignore makes redundant", "[lwyi]")
 {
-  const char* json = R"({
-      "targets": {
-        "liba": {}
-      }
-    })";
-  simdjson::padded_string raw_config(json, std::strlen(json));
-
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(result.has_value());
-
-  const auto& config = result.value();
-
-  const auto& global_config = config.get_global_config();
-  CHECK(global_config.pedantic == false);
-
-  const auto& a_config = config.get_target_config(target_model::Target{"liba"});
-  CHECK(a_config.interface_include_prefixes.empty());
-  CHECK(a_config.allow_includes_set.empty());
-  CHECK(a_config.allow_links_set.empty());
-  CHECK(a_config.allow_includes == false);
-  CHECK(a_config.allow_links == false);
-  CHECK(a_config.interface_allow_includes == false);
-  CHECK(a_config.interface_allow_links == false);
-}
-
-TEST_CASE("lwyi: load_config fails for invalid interface_allow_links type", "[lwyi]")
-{
-  const char* json = R"({
-      "targets": {
-        "liba": {
-          "interface_allow_links": "true"
-        }
-      }
-    })";
-  simdjson::padded_string raw_config(json, std::strlen(json));
-
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(!result.has_value());
-  CHECK(result.error().find("interface_allow_links") != std::string::npos);
-}
-
-TEST_CASE("lwyi: load_config fails for invalid interface_include_prefixes type", "[lwyi]")
-{
-  const char* json = R"({
-      "targets": {
-        "liba": {
-          "interface_include_prefixes": "foo"
-        }
-      }
-    })";
-  simdjson::padded_string raw_config(json, std::strlen(json));
-
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(!result.has_value());
-  CHECK(result.error().find("interface_include_prefixes") != std::string::npos);
-}
-
-TEST_CASE("lwyi: load_config fails for invalid JSON", "[lwyi]")
-{
-  const char* json = "{";
-  simdjson::padded_string raw_config(json, std::strlen(json));
-
-  auto result = lwyi::load_config_impl(raw_config);
-  REQUIRE(result.has_value() == false);
-}
-
-TEST_CASE("lwyi: load_config fails for conflicting ignore and allow fields", "[lwyi]")
-{
-  auto check_load_error = [](const char* json)
+  const std::vector<std::pair<std::string_view, std::string_view>> redundant{
+    {"allow_includes", "true"},
+    {"allow_includes", R"(["libq"])"},
+    {"allow_links", "true"},
+    {"allow_links", R"(["libq"])"},
+    {"interface_allow_includes", "true"},
+    {"interface_allow_links", "true"}};
+  for (const auto& [field, value] : redundant)
   {
-    INFO(json);
-    simdjson::padded_string raw_config(json, std::strlen(json));
-    auto result = lwyi::load_config_impl(raw_config);
-    REQUIRE(!result.has_value());
-    INFO(result.error());
-    CHECK(result.error().find("have conflicting values") != std::string::npos);
-  };
-  auto check_load_succeeds = [](const char* json)
+    CAPTURE(field, value);
+    auto result = lwyi::load_config_impl(R"({"targets":{"liba":{"ignore":true,")" +
+                                         std::string(field) + R"(":)" + std::string(value) +
+                                         "}}}");
+    REQUIRE_FALSE(result);
+    CHECK(result.error() ==
+          std::format("\"liba\": {} cannot be set when ignore is true", field));
+  }
+
+  // Values equal to the defaults are indistinguishable from omitting the field.
+  for (std::string_view value : {"false", "[]"})
   {
-    INFO(json);
-    simdjson::padded_string raw_config(json, std::strlen(json));
-    auto result = lwyi::load_config_impl(raw_config);
-    REQUIRE(result.has_value());
-  };
+    CAPTURE(value);
+    CHECK(lwyi::load_config_impl(
+            R"({"targets":{"liba":{"ignore":true,"allow_includes":)" + std::string(value) + "}}}")
+            .has_value());
+  }
+}
 
-  // allow_includes
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_includes": false
-        }
-      }
-    })");
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_includes": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_includes": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_includes": false
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_includes": ["libq", "libr"]
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_includes": ["libq", "libr"]
-        }
-      }
-    })");
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_includes": []
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_includes": []
-        }
-      }
-    })");
+TEST_CASE("lwyi: load_config reports invalid fields", "[lwyi]")
+{
+  auto result = lwyi::load_config_impl(R"({
+    "targets": {"lib/a~b": {"interface_include_prefixes": ["valid", 42]}}
+  })");
+  REQUIRE_FALSE(result);
+  CHECK(result.error() ==
+        "\"lib/a~b\": field \"interface_include_prefixes\": element 1: expected string");
 
-  // allow_links
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_links": false
-        }
-      }
-    })");
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_links": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_links": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_links": false
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_links": ["libq", "libr"]
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_links": ["libq", "libr"]
-        }
-      }
-    })");
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "allow_links": []
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "allow_links": []
-        }
-      }
-    })");
+  auto named = lwyi::load_config_impl(R"({
+    "targets": {"liba": {"allow_links": null}}
+  })");
+  REQUIRE_FALSE(named);
+  CHECK(named.error() == "\"liba\": field \"allow_links\": expected boolean or array");
+}
 
-  // interface_allow_includes
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "interface_allow_includes": false
-        }
-      }
-    })");
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "interface_allow_includes": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "interface_allow_includes": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "interface_allow_includes": false
-        }
-      }
-    })");
-
-  // interface_allow_links
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "interface_allow_links": false
-        }
-      }
-    })");
-  check_load_succeeds(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "interface_allow_links": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": false,
-          "interface_allow_links": true
-        }
-      }
-    })");
-  check_load_error(R"({
-      "targets": {
-        "liba": {
-          "ignore": true,
-          "interface_allow_links": false
-        }
-      }
-    })");
+TEST_CASE("lwyi: load_config rejects malformed and unknown fields", "[lwyi]")
+{
+  const std::vector<std::string_view> invalid{
+    "{", "null", "[]", R"({"targets":null})", R"({"targets":[]})",
+    R"({"targets":{"liba":null}})", R"({"targets":{"liba":{"ignore":null}}})",
+    R"({"targets":{"liba":{"interface_include_prefixes":[true]}}})",
+    R"({"targets":{"liba":{"allow_includes":[true]}}})",
+    R"({"targets":{"liba":{"interface_allow_links":"true"}}})",
+    R"({"targets":{},"targets":{}})", R"({"targets":{"liba":{},"liba":{}}})",
+    R"({"targets":{"liba":{"ignore":true,"ignore":false}}})",
+    R"({"unknown":true})", R"({"targets":{"liba":{"unknown":true}}})"};
+  for (auto text : invalid)
+  {
+    auto result = lwyi::load_config_impl(text);
+    REQUIRE_FALSE(result);
+  }
 }
