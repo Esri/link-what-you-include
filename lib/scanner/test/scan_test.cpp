@@ -925,4 +925,246 @@ TEST_CASE("scanner: scan can distinguish private sources in the interface includ
   CHECK(expected == output->include_sets);
 }
 
+TEST_CASE("scanner: scan treats files included on the command line as a private include", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //    a.hpp         private.cpp
+  //      │             ╱     ╲
+  //    b.hpp   interface.hpp  ╲
+  //                  ╱         ╲
+  //               c.hpp       d.hpp
+  //
+  // Where: a.hpp is included on the command line
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/d.hpp", "");
+  add_file(*fs, "/interface.hpp", R"(
+    #include "c.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "interface.hpp"
+    #include "d.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  scanner::Compile_command compile_commands{"/", "/private.cpp", {"clang", "/private.cpp", "-include", "/a.hpp"}};
+
+  // Expect:
+  //   interface includes: c.hpp
+  //   includes:           a.hpp, c.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/c.hpp", {{"/interface.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"", 1}}},
+                 {"/c.hpp", {{"/private.cpp", 2}, {"/interface.hpp", 2}}},
+                 {"/d.hpp", {{"/private.cpp", 3}}}}};
+
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects transitive includes from a command line private header", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //     private_1.hpp                   private.cpp
+  //       ╱     ╲                         ╱     ╲
+  //      ╱       ╲                 private_4.hpp ╲
+  //   a.hpp  private_2.hpp              ╱         ╲
+  //           ╱     ╲                  d.hpp       e.hpp
+  //          ╱       ╲
+  //       b.hpp  private_3.hpp
+  //                 ╱
+  //                ╱
+  //             c.hpp
+  //
+  // Where: private_1.hpp is included on the command line
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/d.hpp", "");
+  add_file(*fs, "/e.hpp", "");
+  add_file(*fs, "/private_1.hpp", R"(
+    #include "private_2.hpp"
+    #include "a.hpp"
+    )");
+  add_file(*fs, "/private_2.hpp", R"(
+    #include "private_3.hpp"
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/private_3.hpp", R"(
+    #include "c.hpp"
+    )");
+  add_file(*fs, "/private_4.hpp", R"(
+    #include "d.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "private_4.hpp"
+    #include "e.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {};
+  target_data.sources = {"/private.cpp",
+                         "/private_1.hpp",
+                         "/private_2.hpp",
+                         "/private_3.hpp",
+                         "/private_4.hpp"};
+
+  scanner::Compile_command compile_commands{
+    "/",
+    "/private.cpp",
+    {"clang", "/private.cpp", "-include", "/private_1.hpp"}};
+
+  // Expect:
+  //   interface includes: e.hpp
+  //   includes:           a.hpp, b.hpp, c.hpp, d.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {},
+    .includes = {{"/a.hpp", {{"", 1}, {"/private_1.hpp", 3}}},
+                 {"/b.hpp", {{"", 1}, {"/private_1.hpp", 2}, {"/private_2.hpp", 3}}},
+                 {"/c.hpp", {{"", 1}, {"/private_1.hpp", 2}, {"/private_2.hpp", 2}, {"/private_3.hpp", 2}}},
+                 {"/d.hpp", {{"/private.cpp", 2}, {"/private_4.hpp", 2}}},
+                 {"/e.hpp", {{"/private.cpp", 3}}}}};
+
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan collects transitive includes from a command line interface header", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //     interface_1.hpp                   private.cpp
+  //       ╱     ╲                           ╱     ╲
+  //      ╱       ╲                 interface_4.hpp ╲
+  //   a.hpp  interface_2.hpp              ╱         ╲
+  //           ╱     ╲                  d.hpp       e.hpp
+  //          ╱       ╲
+  //       b.hpp  interface_3.hpp
+  //                 ╱
+  //                ╱
+  //             c.hpp
+  //
+  // Where: interface_1.hpp is included on the command line
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", "");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", "");
+  add_file(*fs, "/d.hpp", "");
+  add_file(*fs, "/e.hpp", "");
+  add_file(*fs, "/interface_1.hpp", R"(
+    #include "interface_2.hpp"
+    #include "a.hpp"
+    )");
+  add_file(*fs, "/interface_2.hpp", R"(
+    #include "interface_3.hpp"
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/interface_3.hpp", R"(
+    #include "c.hpp"
+    )");
+  add_file(*fs, "/interface_4.hpp", R"(
+    #include "d.hpp"
+    )");
+  add_file(*fs, "/private.cpp", R"(
+    #include "interface_4.hpp"
+    #include "e.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {"/interface_1.hpp",
+                                   "/interface_2.hpp",
+                                   "/interface_3.hpp",
+                                   "/interface_4.hpp"};
+  target_data.sources = {"/private.cpp"};
+
+  scanner::Compile_command compile_commands{
+    "/",
+    "/private.cpp",
+    {"clang", "/private.cpp", "-include", "/interface_1.hpp"}};
+
+  // Expect:
+  //   interface includes: e.hpp
+  //   includes:           a.hpp, b.hpp, c.hpp, d.hpp
+  scanner::Include_sets expected{
+    .interface_includes = {{"/a.hpp", {{"/interface_1.hpp", 3}}},
+                           {"/b.hpp", {{"/interface_2.hpp", 3}}},
+                           {"/c.hpp", {{"/interface_3.hpp", 2}}},
+                           {"/d.hpp", {{"/interface_4.hpp", 2}}}},
+    .includes = {{"/a.hpp", {{"", 1}, {"/interface_1.hpp", 3}}},
+                 {"/b.hpp", {{"", 1}, {"/interface_1.hpp", 2}, {"/interface_2.hpp", 3}}},
+                 {"/c.hpp", {{"", 1}, {"/interface_1.hpp", 2}, {"/interface_2.hpp", 2}, {"/interface_3.hpp", 2}}},
+                 {"/d.hpp", {{"/private.cpp", 2}, {"/interface_4.hpp", 2}}},
+                 {"/e.hpp", {{"/private.cpp", 3}}}}};
+
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
+TEST_CASE("scanner: scan sees all files included on the command line", "[scanner]")
+{
+  message::configure(message::Color_output::never, message::Message_level::normal);
+
+  // Given:
+  //    a.hpp   c.hpp   e.hpp  private.cpp
+  //      │       │       │        │
+  //    b.hpp   d.hpp   f.hpp    g.hpp
+  //
+  // Where: a.hpp, c.hpp, and e.hpp are included on the command line
+  auto fs = make_file_system();
+  add_file(*fs, "/a.hpp", R"(
+    #include "b.hpp"
+    )");
+  add_file(*fs, "/b.hpp", "");
+  add_file(*fs, "/c.hpp", R"(
+    #include "d.hpp"
+    )");
+  add_file(*fs, "/d.hpp", "");
+  add_file(*fs, "/e.hpp", R"(
+    #include "f.hpp"
+    )");
+  add_file(*fs, "/f.hpp", "");
+  add_file(*fs, "/g.hpp", "");
+  add_file(*fs, "/private.cpp", R"(
+    #include "g.hpp"
+    )");
+  target_model::Target_data target_data;
+  target_data.interface_headers = {};
+  target_data.sources = {"/private.cpp"};
+
+  scanner::Compile_command compile_commands{
+    "/",
+    "/private.cpp",
+    {"clang", "/private.cpp", "-include", "/a.hpp", "-include", "/c.hpp", "-include", "/e.hpp"}};
+
+  // Expect:
+  //   interface includes:
+  //   includes:           a.hpp, c.hpp, e.hpp, g.hpp
+  scanner::Include_sets expected{.interface_includes = {},
+                                 .includes = {{"/a.hpp", {{"", 1}}},
+                                              {"/c.hpp", {{"", 2}}},
+                                              {"/e.hpp", {{"", 3}}},
+                                              {"/g.hpp", {{"/private.cpp", 2}}}}};
+
+  clang::tooling::dependencies::DependencyScanningFilesystemSharedCache dep_cache;
+  auto output = scanner::scan_impl(fs, dep_cache, target_data, compile_commands);
+  REQUIRE(output.has_value() == true);
+  CHECK(expected == output->include_sets);
+}
+
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
