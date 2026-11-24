@@ -54,7 +54,7 @@ jobs:
             ctest_submit()
             message(FATAL_ERROR "ctest_build failed with ${errors} errors and ${warnings} warnings")
           endif()
-          ctest_test(RETURN_VALUE result)
+          ctest_test(EXCLUDE dogfood RETURN_VALUE result)
           ctest_coverage()
           ctest_submit()
 

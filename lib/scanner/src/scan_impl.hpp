@@ -5,11 +5,10 @@
 
 #include <scanner/include.hpp>
 #include <scanner/scan.hpp>
+#include <src/include_sets.hpp>
 
 #include <expected>
 #include <filesystem>
-#include <map>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -43,22 +42,9 @@ struct Compile_command
   std::vector<std::string> command;
 };
 
-// Here we define a custom set for Includes that ignores the include chain that introduces the dependency. Therefore,
-// when a header is included from multiple source files, only one of the include chains is retained.
-// TODO: Consider providing an option to store all include chains for display to the user.
-struct Include_cmp
-{
-  bool operator()(const Include& lhs, const Include& rhs) const
-  {
-    return lhs.path < rhs.path;
-  }
-};
-using Include_set = std::set<Include, Include_cmp>;
-
 struct Include_data
 {
-  Include_set includes;
-  std::map<std::filesystem::path, Include_set> interface_header_includes;
+  Include_sets include_sets;
 };
 
 std::expected<Include_data, std::string> scan_impl(

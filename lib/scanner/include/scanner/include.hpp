@@ -13,11 +13,15 @@ struct Source_line
 {
   std::filesystem::path source;
   uint32_t line{0};
+
+  bool operator==(const Source_line&) const = default;
 };
 
 struct Include
 {
   std::filesystem::path path;
   std::vector<Source_line> include_chain;
+
+  bool operator==(const Include&) const = default;
 };
 } // namespace scanner

@@ -8,6 +8,7 @@ target_sources(lib_scanner
     include/scanner/scan.hpp
   PRIVATE FILE_SET private_headers TYPE HEADERS FILES
     src/executable_path.hpp
+    src/include_sets.hpp
     src/merge_includes.hpp
     src/scan_impl.hpp
   PRIVATE

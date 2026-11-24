@@ -4,7 +4,7 @@
 #pragma once
 
 #include <scanner/scan.hpp>
-#include <src/scan_impl.hpp>
+#include <src/include_sets.hpp>
 
 #include <expected>
 #include <string>
@@ -12,8 +12,6 @@
 
 namespace scanner
 {
-struct Include_data;
-
 std::expected<Intransitive_includes, std::string> merge_includes(
-  std::vector<std::expected<Include_data, std::string>> include_data_array);
+  std::vector<std::expected<Include_sets, std::string>> include_sets_array);
 } // namespace scanner
