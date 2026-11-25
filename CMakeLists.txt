@@ -68,9 +68,12 @@ endif()
 # Upstream simdjson only guarantees releases with the same major and minor versions are compatible.
 # Our testing shows that we can use older versions so we work around this restriction here to allow
 # the latest version (currently 5.0) and the version available on Ubuntu-26 (4.2).
-find_package(simdjson 5.0 QUIET)
+find_package(simdjson 5.0 QUIET) # what we build
 if(NOT simdjson_FOUND)
-  find_package(simdjson 4.2 QUIET)
+  find_package(simdjson 5.2 QUIET) # macos (homebrew)
+endif()
+if(NOT simdjson_FOUND)
+  find_package(simdjson 4.2 QUIET) # ubuntu
 endif()
 if(simdjson_FOUND)
   message(STATUS "Found simdjson: ${simdjson_VERSION}")

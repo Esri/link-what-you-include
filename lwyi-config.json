@@ -13,6 +13,9 @@
         "simdjson"
       ]
     },
+    "simdjson::simdjson_static": {
+      "ignore": true
+    },
     "clangTooling": {
       "interface_include_prefixes": [
         "clang",
@@ -20,6 +23,12 @@
       ]
     },
     "clangDependencyScanning": {
+      "ignore": true
+    },
+    "zstd::libzstd_static": {
+      "ignore": true
+    },
+    "zstd::libzstd_shared": {
       "ignore": true
     }
   }
