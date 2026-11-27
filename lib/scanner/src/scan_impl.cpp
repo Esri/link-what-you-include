@@ -98,7 +98,6 @@ std::string to_string(const std::filesystem::path& source)
 {
   return std::format("{}", source.empty() ? "<built-in>" : source.string());
 }
-} // namespace
 
 class PPRecorder : public clang::PPCallbacks
 {
@@ -425,6 +424,7 @@ private:
   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> file_system_;
   clang::tooling::dependencies::DependencyScanningFilesystemSharedCache& dep_cache_;
 };
+} // namespace
 
 std::expected<Include_data, std::string> scan_impl(
   const llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>& file_system,
